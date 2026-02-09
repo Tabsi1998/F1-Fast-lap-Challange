@@ -188,23 +188,45 @@ class F1LapTimeAPITester:
             print(f"Found {len(response)} tracks")
         return success, response
 
-    def test_create_track(self):
-        """Test creating a track (admin only)"""
+    def test_create_track_with_image(self):
+        """Test creating a track with image URL (admin only)"""
         success, response = self.run_test(
-            "Create Track",
+            "Create Track with Image",
             "POST",
             "admin/tracks",
             200,
             data={
-                "name": "Silverstone",
-                "country": "United Kingdom",
-                "length_km": 5.891
+                "name": "Monaco",
+                "country": "Monaco",
+                "image_url": "https://example.com/monaco.jpg",
+                "length_km": 3.337
             },
             headers=self.get_auth_headers()
         )
         if success and 'id' in response:
             self.created_tracks.append(response['id'])
-            print(f"Created track ID: {response['id']}")
+            print(f"Created track with image ID: {response['id']}")
+        return success, response
+
+    def test_update_track(self):
+        """Test updating a track (admin only)"""
+        if not self.created_tracks:
+            return False, {}
+        
+        track_id = self.created_tracks[0]
+        success, response = self.run_test(
+            "Update Track",
+            "PUT",
+            f"admin/tracks/{track_id}",
+            200,
+            data={
+                "name": "Updated Silverstone",
+                "country": "UK",
+                "image_url": "https://example.com/silverstone-updated.jpg",
+                "length_km": 5.891
+            },
+            headers=self.get_auth_headers()
+        )
         return success, response
 
     def test_update_event_settings(self):
