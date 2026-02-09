@@ -11,8 +11,9 @@ class F1LapTimeAPITester:
         self.created_entries = []
         self.created_tracks = []
         self.token = None
-        self.admin_username = f"testadmin_{datetime.now().strftime('%H%M%S')}"
-        self.admin_password = "TestPass123!"
+        # Use default admin credentials that are auto-created
+        self.admin_username = "admin"
+        self.admin_password = "admin"
 
     def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
         """Run a single API test"""
