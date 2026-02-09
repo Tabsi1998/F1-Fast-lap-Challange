@@ -1,0 +1,157 @@
+{
+  "design_system": {
+    "theme": "Dark Racing",
+    "archetype": "The Performance Pro (Modified)",
+    "emotional_tone": "Adrenaline, Precision, Speed, Competition",
+    "colors": {
+      "background": {
+        "default": "#0A0A0A",
+        "surface": "#1A1A1A",
+        "overlay": "rgba(0, 0, 0, 0.8)"
+      },
+      "primary": {
+        "default": "#FF1E1E",
+        "hover": "#D61A1A",
+        "active": "#B31515",
+        "foreground": "#FFFFFF"
+      },
+      "secondary": {
+        "default": "#FFFFFF",
+        "foreground": "#000000"
+      },
+      "accent": {
+        "gold": "#FFD700",
+        "silver": "#C0C0C0",
+        "bronze": "#CD7F32",
+        "neon_blue": "#00F0FF"
+      },
+      "text": {
+        "primary": "#FFFFFF",
+        "secondary": "#A0A0A0",
+        "muted": "#525252"
+      },
+      "border": {
+        "default": "#333333",
+        "active": "#FF1E1E"
+      },
+      "status": {
+        "success": "#00FF00",
+        "error": "#FF0000",
+        "warning": "#FFA500"
+      }
+    },
+    "typography": {
+      "font_family": {
+        "heading": "\"Russo One\", sans-serif",
+        "body": "\"Barlow\", sans-serif",
+        "mono": "\"JetBrains Mono\", monospace"
+      },
+      "scale": {
+        "h1": "text-6xl md:text-8xl tracking-tighter uppercase",
+        "h2": "text-4xl md:text-5xl tracking-tight uppercase",
+        "h3": "text-2xl md:text-3xl tracking-normal uppercase",
+        "body": "text-base md:text-lg leading-relaxed",
+        "mono_lg": "text-xl md:text-2xl tracking-widest",
+        "mono_sm": "text-sm tracking-wide"
+      }
+    },
+    "spacing": {
+      "container_padding": "p-6 md:p-12",
+      "section_gap": "gap-8 md:gap-16",
+      "grid_gap": "gap-4"
+    },
+    "visual_enhancers": {
+      "border_radius": {
+        "default": "rounded-none",
+        "button": "rounded-sm",
+        "card": "rounded-lg"
+      },
+      "shadows": {
+        "glow": "0 0 20px rgba(255, 30, 30, 0.5)",
+        "card": "0 4px 6px -1px rgba(0, 0, 0, 0.5)"
+      },
+      "textures": {
+        "carbon_fiber": "url('https://images.unsplash.com/photo-1595972424993-0cf6b1273a68')",
+        "asphalt": "url('https://images.unsplash.com/photo-1706693309586-9ea697804008')"
+      }
+    }
+  },
+  "components": {
+    "Leaderboard": {
+      "description": "High-density grid layout with rank badges. Top 3 rows should be larger and highlighted.",
+      "style": "Grid Borders with glowing edges for top ranks.",
+      "columns": ["Rank", "Driver", "Team (Optional)", "Time", "Gap"],
+      "font_usage": "Headings in Russo One, Data in JetBrains Mono."
+    },
+    "AdminPanel": {
+      "description": "Simple, high-contrast form for data entry.",
+      "style": "Neumorphism (Dark Tactile). Inputs should look like physical dashboard slots.",
+      "elements": ["Name Input", "Team Input", "Time Input (MM:SS.mmm)", "Add Button", "Delete Button"]
+    },
+    "ExportButtons": {
+      "description": "Prominent buttons for CSV and PDF export.",
+      "style": "Solid primary color with icon.",
+      "icons": ["FileText", "Download"]
+    }
+  },
+  "assets": {
+    "images": {
+      "hero_bg": {
+        "url": "https://images.unsplash.com/photo-1738425459241-53cc5fc86413",
+        "alt": "F1 Race Car at Night",
+        "usage": "Login screen background or main app background with overlay"
+      },
+      "texture_carbon": {
+        "url": "https://images.unsplash.com/photo-1595972424993-0cf6b1273a68",
+        "alt": "Carbon Fiber Texture",
+        "usage": "Card backgrounds, sidebar background"
+      },
+      "texture_asphalt": {
+        "url": "https://images.unsplash.com/photo-1706693309586-9ea697804008",
+        "alt": "Asphalt Texture",
+        "usage": "Footer background or section divider"
+      }
+    },
+    "icons": {
+      "library": "lucide-react",
+      "recommended": ["Trophy", "Timer", "Flag", "Settings", "Download", "Trash2", "Plus", "User", "Users"]
+    }
+  },
+  "layout_rules": {
+    "grid_system": "Bento Grid (Mode B for Dashboard)",
+    "alignment": "Left aligned text, Right aligned numbers (Monospace)",
+    "mobile_responsive": "Stack columns on mobile, hide less important columns (Team, Gap)"
+  },
+  "instructions_to_main_agent": [
+    "Install 'lucide-react' for icons.",
+    "Use 'Russo One' for all main headings to give that F1 feel.",
+    "Use 'JetBrains Mono' for all timing data to ensure numbers align perfectly.",
+    "Implement the 'Carbon Fiber' texture as a subtle background pattern for cards using 'bg-blend-overlay'.",
+    "Ensure the 'Add Lap' form is extremely simple and keyboard friendly.",
+    "The Leaderboard must highlight the Top 3 positions with Gold, Silver, Bronze border colors.",
+    "Use the 'hero_bg' image with a heavy dark overlay (bg-black/80) as the main background.",
+    "Do NOT use gradients for the background. Use solid colors or the provided textures.",
+    "Ensure high contrast (White text on Black/Dark Grey backgrounds)."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use sonner for toasts",
+    "Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}
