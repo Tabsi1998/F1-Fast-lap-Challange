@@ -368,23 +368,25 @@ class F1LapTimeAPITester:
         )
         return success
 
-    def test_csv_export(self):
-        """Test CSV export endpoint"""
+    def test_admin_csv_export(self):
+        """Test CSV export endpoint (admin only)"""
         success, response = self.run_test(
-            "CSV Export",
+            "Admin CSV Export",
             "GET",
-            "export/csv",
-            200
+            "admin/export/csv",
+            200,
+            headers=self.get_auth_headers()
         )
         return success
 
-    def test_pdf_export_data(self):
-        """Test PDF export data endpoint"""
+    def test_admin_pdf_export_data(self):
+        """Test PDF export data endpoint (admin only)"""
         success, response = self.run_test(
-            "PDF Export Data",
+            "Admin PDF Export Data",
             "GET",
-            "export/pdf",
-            200
+            "admin/export/pdf",
+            200,
+            headers=self.get_auth_headers()
         )
         return success, response
 
