@@ -332,7 +332,7 @@ class F1LapTimeAPITester:
         return success, response
 
     def test_time_format_variations(self):
-        """Test various time format variations"""
+        """Test various time format variations (admin only)"""
         test_cases = [
             ("1:23.456", True),   # Standard format
             ("12:34.567", True),  # Two digit minutes
@@ -351,18 +351,50 @@ class F1LapTimeAPITester:
             success, _ = self.run_test(
                 f"Time Format: '{time_str}'",
                 "POST",
-                "laps",
+                "admin/laps",
                 expected_status,
                 data={
                     "driver_name": f"Test Driver {time_str}",
                     "lap_time_display": time_str
-                }
+                },
+                headers=self.get_auth_headers()
             )
             if success:
                 passed += 1
         
         print(f"Time format tests: {passed}/{len(test_cases)} passed")
         return passed == len(test_cases)
+
+    def test_unauthorized_access(self):
+        """Test that protected endpoints require authentication"""
+        print("\n🔒 Testing Unauthorized Access...")
+        
+        # Test admin endpoints without token
+        endpoints_to_test = [
+            ("admin/laps", "POST", {"driver_name": "Test", "lap_time_display": "1:23.456"}),
+            ("admin/laps/fake-id", "PUT", {"driver_name": "Test"}),
+            ("admin/laps/fake-id", "DELETE", None),
+            ("admin/laps", "DELETE", None),
+            ("admin/tracks", "POST", {"name": "Test", "country": "Test"}),
+            ("admin/tracks/fake-id", "DELETE", None),
+            ("admin/event", "PUT", {"status": "active"}),
+            ("auth/check", "GET", None)
+        ]
+        
+        passed = 0
+        for endpoint, method, data in endpoints_to_test:
+            success, _ = self.run_test(
+                f"Unauthorized {method} {endpoint}",
+                method,
+                endpoint,
+                401,  # Should return 401 Unauthorized
+                data=data
+            )
+            if success:
+                passed += 1
+        
+        print(f"Unauthorized access tests: {passed}/{len(endpoints_to_test)} passed")
+        return passed == len(endpoints_to_test)
 
 def main():
     print("🏎️  F1 Fast Lap Challenge API Testing")
