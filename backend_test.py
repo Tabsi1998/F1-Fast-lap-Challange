@@ -72,39 +72,10 @@ class F1LapTimeAPITester:
         )
         return success
 
-    def test_has_admin(self):
-        """Test checking if admin exists"""
-        success, response = self.run_test(
-            "Check Admin Exists",
-            "GET", 
-            "auth/has-admin",
-            200
-        )
-        if success:
-            print(f"Has admin: {response.get('has_admin', False)}")
-        return success, response
-
-    def test_admin_setup(self):
-        """Test admin account setup"""
-        success, response = self.run_test(
-            "Admin Setup",
-            "POST",
-            "auth/setup",
-            200,
-            data={
-                "username": self.admin_username,
-                "password": self.admin_password
-            }
-        )
-        if success and 'token' in response:
-            self.token = response['token']
-            print(f"Admin setup successful, token received")
-        return success, response
-
     def test_admin_login(self):
-        """Test admin login"""
+        """Test admin login with default credentials"""
         success, response = self.run_test(
-            "Admin Login",
+            "Admin Login (admin/admin)",
             "POST",
             "auth/login", 
             200,
@@ -117,6 +88,69 @@ class F1LapTimeAPITester:
             self.token = response['token']
             print(f"Login successful, token received")
         return success, response
+
+    def test_get_site_settings(self):
+        """Test getting site settings (public)"""
+        success, response = self.run_test(
+            "Get Site Settings",
+            "GET",
+            "settings",
+            200
+        )
+        if success:
+            print(f"Title: {response.get('title_line1', 'F1')} {response.get('title_line2', 'FAST LAP')} {response.get('title_line3', 'CHALLENGE')}")
+            print(f"Colors: {response.get('title_color1', '#FFFFFF')}, {response.get('title_color2', '#FF1E1E')}, {response.get('title_color3', '#FFFFFF')}")
+        return success, response
+
+    def test_update_site_settings(self):
+        """Test updating site settings (admin only)"""
+        success, response = self.run_test(
+            "Update Site Settings",
+            "PUT",
+            "admin/settings",
+            200,
+            data={
+                "title_line1": "TEST",
+                "title_line2": "FAST LAP",
+                "title_line3": "UPDATED",
+                "title_color1": "#FF0000",
+                "title_color2": "#00FF00",
+                "title_color3": "#0000FF"
+            },
+            headers=self.get_auth_headers()
+        )
+        return success, response
+
+    def test_password_change(self):
+        """Test password change functionality (admin only)"""
+        success, response = self.run_test(
+            "Change Password",
+            "PUT",
+            "admin/password",
+            200,
+            data={
+                "current_password": self.admin_password,
+                "new_password": "newpassword123"
+            },
+            headers=self.get_auth_headers()
+        )
+        if success:
+            # Change password back for other tests
+            self.admin_password = "newpassword123"
+            success2, _ = self.run_test(
+                "Change Password Back",
+                "PUT",
+                "admin/password",
+                200,
+                data={
+                    "current_password": "newpassword123",
+                    "new_password": "admin"
+                },
+                headers=self.get_auth_headers()
+            )
+            self.admin_password = "admin"
+            return success and success2
+        return success
 
     def test_auth_check(self):
         """Test authentication check"""
