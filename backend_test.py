@@ -52,6 +52,15 @@ class F1LapTimeAPITester:
             print(f"❌ Failed - Error: {str(e)}")
             return False, {}
 
+    def get_auth_headers(self):
+        """Get authorization headers if token exists"""
+        if self.token:
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.token}'
+            }
+        return {'Content-Type': 'application/json'}
+
     def test_root_endpoint(self):
         """Test root API endpoint"""
         success, response = self.run_test(
@@ -61,6 +70,122 @@ class F1LapTimeAPITester:
             200
         )
         return success
+
+    def test_has_admin(self):
+        """Test checking if admin exists"""
+        success, response = self.run_test(
+            "Check Admin Exists",
+            "GET", 
+            "auth/has-admin",
+            200
+        )
+        if success:
+            print(f"Has admin: {response.get('has_admin', False)}")
+        return success, response
+
+    def test_admin_setup(self):
+        """Test admin account setup"""
+        success, response = self.run_test(
+            "Admin Setup",
+            "POST",
+            "auth/setup",
+            200,
+            data={
+                "username": self.admin_username,
+                "password": self.admin_password
+            }
+        )
+        if success and 'token' in response:
+            self.token = response['token']
+            print(f"Admin setup successful, token received")
+        return success, response
+
+    def test_admin_login(self):
+        """Test admin login"""
+        success, response = self.run_test(
+            "Admin Login",
+            "POST",
+            "auth/login", 
+            200,
+            data={
+                "username": self.admin_username,
+                "password": self.admin_password
+            }
+        )
+        if success and 'token' in response:
+            self.token = response['token']
+            print(f"Login successful, token received")
+        return success, response
+
+    def test_auth_check(self):
+        """Test authentication check"""
+        success, response = self.run_test(
+            "Auth Check",
+            "GET",
+            "auth/check",
+            200,
+            headers=self.get_auth_headers()
+        )
+        return success, response
+
+    def test_event_status(self):
+        """Test getting event status (public)"""
+        success, response = self.run_test(
+            "Get Event Status",
+            "GET",
+            "event/status",
+            200
+        )
+        if success:
+            print(f"Event status: {response.get('status', 'unknown')}")
+            print(f"Message: {response.get('message', 'none')}")
+        return success, response
+
+    def test_get_tracks(self):
+        """Test getting all tracks (public)"""
+        success, response = self.run_test(
+            "Get All Tracks",
+            "GET", 
+            "tracks",
+            200
+        )
+        if success:
+            print(f"Found {len(response)} tracks")
+        return success, response
+
+    def test_create_track(self):
+        """Test creating a track (admin only)"""
+        success, response = self.run_test(
+            "Create Track",
+            "POST",
+            "admin/tracks",
+            200,
+            data={
+                "name": "Silverstone",
+                "country": "United Kingdom",
+                "length_km": 5.891
+            },
+            headers=self.get_auth_headers()
+        )
+        if success and 'id' in response:
+            self.created_tracks.append(response['id'])
+            print(f"Created track ID: {response['id']}")
+        return success, response
+
+    def test_update_event_settings(self):
+        """Test updating event settings (admin only)"""
+        success, response = self.run_test(
+            "Update Event Settings",
+            "PUT",
+            "admin/event",
+            200,
+            data={
+                "status": "active",
+                "track_id": self.created_tracks[0] if self.created_tracks else None
+            },
+            headers=self.get_auth_headers()
+        )
+        return success, response
 
     def test_create_lap_entry_basic(self):
         """Test creating a basic lap entry (name only)"""
