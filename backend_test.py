@@ -9,6 +9,10 @@ class F1LapTimeAPITester:
         self.tests_run = 0
         self.tests_passed = 0
         self.created_entries = []
+        self.created_tracks = []
+        self.token = None
+        self.admin_username = f"testadmin_{datetime.now().strftime('%H%M%S')}"
+        self.admin_password = "TestPass123!"
 
     def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
         """Run a single API test"""
