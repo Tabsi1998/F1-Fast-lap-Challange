@@ -1,75 +1,297 @@
+@import url('https://fonts.googleapis.com/css2?family=Russo+One&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    --bg-default: #0A0A0A;
+    --bg-surface: #1A1A1A;
+    --bg-overlay: rgba(0, 0, 0, 0.8);
+    --primary-red: #FF1E1E;
+    --primary-hover: #D61A1A;
+    --primary-active: #B31515;
+    --accent-gold: #FFD700;
+    --accent-silver: #C0C0C0;
+    --accent-bronze: #CD7F32;
+    --accent-neon: #00F0FF;
+    --text-primary: #FFFFFF;
+    --text-secondary: #A0A0A0;
+    --text-muted: #525252;
+    --border-default: #333333;
+    --border-active: #FF1E1E;
+}
+
 body {
     margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
+    font-family: "Barlow", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: var(--bg-default);
+    color: var(--text-primary);
 }
 
 code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-family: "JetBrains Mono", monospace;
 }
 
+.font-heading {
+    font-family: "Russo One", sans-serif;
+}
+
+.font-body {
+    font-family: "Barlow", sans-serif;
+}
+
+.font-mono {
+    font-family: "JetBrains Mono", monospace;
+}
+
+/* Racing Theme Styles */
+.racing-bg {
+    background-color: var(--bg-default);
+    background-image: url('https://images.unsplash.com/photo-1738425459241-53cc5fc86413?w=1920&q=80');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.racing-overlay {
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(2px);
+}
+
+.card-surface {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-default);
+}
+
+.card-carbon {
+    background: linear-gradient(135deg, #1A1A1A 0%, #0D0D0D 100%);
+    border: 1px solid var(--border-default);
+}
+
+/* Glow Effects */
+.glow-red {
+    box-shadow: 0 0 20px rgba(255, 30, 30, 0.5);
+}
+
+.glow-gold {
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+    border-color: var(--accent-gold) !important;
+}
+
+.glow-silver {
+    box-shadow: 0 0 15px rgba(192, 192, 192, 0.4);
+    border-color: var(--accent-silver) !important;
+}
+
+.glow-bronze {
+    box-shadow: 0 0 15px rgba(205, 127, 50, 0.4);
+    border-color: var(--accent-bronze) !important;
+}
+
+/* Rank Badge Styles */
+.rank-badge {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Russo One", sans-serif;
+    font-size: 1.25rem;
+    border-radius: 4px;
+}
+
+.rank-1 {
+    background: linear-gradient(135deg, #FFD700 0%, #B8860B 100%);
+    color: #000;
+}
+
+.rank-2 {
+    background: linear-gradient(135deg, #C0C0C0 0%, #808080 100%);
+    color: #000;
+}
+
+.rank-3 {
+    background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%);
+    color: #000;
+}
+
+.rank-default {
+    background-color: var(--bg-surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
+}
+
+/* Animation */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-in {
+    animation: slideIn 0.3s ease-out forwards;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 30, 30, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(255, 30, 30, 0.6);
+    }
+}
+
+.animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Button Styles */
+.btn-primary {
+    background-color: var(--primary-red);
+    color: white;
+    border: none;
+    font-family: "Barlow", sans-serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+    transform: scale(1.02);
+}
+
+.btn-primary:active {
+    background-color: var(--primary-active);
+    transform: scale(0.98);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    font-family: "Barlow", sans-serif;
+    font-weight: 500;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-red);
+    background-color: rgba(255, 30, 30, 0.1);
+}
+
+/* Input Styles */
+.input-racing {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    color: var(--text-primary);
+    font-family: "Barlow", sans-serif;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-racing:focus {
+    border-color: var(--primary-red);
+    box-shadow: 0 0 10px rgba(255, 30, 30, 0.3);
+    outline: none;
+}
+
+.input-racing::placeholder {
+    color: var(--text-muted);
+}
+
+/* Time Input */
+.input-time {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 1.25rem;
+    letter-spacing: 0.1em;
+}
+
+/* Table Styles */
+.table-racing {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+.table-racing th {
+    font-family: "Russo One", sans-serif;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0 16px 8px;
+    text-align: left;
+}
+
+.table-racing td {
+    padding: 16px;
+    background-color: var(--bg-surface);
+}
+
+.table-racing tr td:first-child {
+    border-radius: 8px 0 0 8px;
+}
+
+.table-racing tr td:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-default);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Shadcn overrides for dark theme */
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
+        --background: 0 0% 4%;
+        --foreground: 0 0% 100%;
+        --card: 0 0% 10%;
+        --card-foreground: 0 0% 100%;
+        --popover: 0 0% 10%;
+        --popover-foreground: 0 0% 100%;
+        --primary: 0 100% 56%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 0 0% 10%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 0 0% 20%;
+        --muted-foreground: 0 0% 63%;
+        --accent: 0 0% 20%;
+        --accent-foreground: 0 0% 100%;
         --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 0 0% 20%;
+        --input: 0 0% 20%;
+        --ring: 0 100% 56%;
+        --chart-1: 0 100% 56%;
+        --chart-2: 51 100% 50%;
+        --chart-3: 0 0% 75%;
+        --chart-4: 30 80% 50%;
+        --chart-5: 180 100% 50%;
         --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
     }
 }
 
@@ -85,31 +307,5 @@ code {
 @layer base {
     [data-debug-wrapper="true"] {
         display: contents !important;
-    }
-
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
     }
 }
