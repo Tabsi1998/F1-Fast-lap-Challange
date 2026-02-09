@@ -461,8 +461,8 @@ class F1LapTimeAPITester:
         return passed == len(endpoints_to_test)
 
 def main():
-    print("🏎️  F1 Fast Lap Challenge API Testing (Updated with Auth)")
-    print("=" * 60)
+    print("🏎️  F1 Fast Lap Challenge API Testing (Updated for New Features)")
+    print("=" * 70)
     
     tester = F1LapTimeAPITester()
     
@@ -473,39 +473,19 @@ def main():
 
     # Test public endpoints first
     print("\n🌐 Testing Public Endpoints...")
+    tester.test_get_site_settings()
     tester.test_event_status()
     tester.test_get_tracks()
-    tester.test_csv_export()
-    tester.test_pdf_export_data()
 
     # Test unauthorized access to protected endpoints
     tester.test_unauthorized_access()
 
-    # Test authentication flow
+    # Test authentication flow with default admin
     print("\n🔐 Testing Authentication...")
-    
-    # Check if admin exists
-    success, has_admin_response = tester.test_has_admin()
+    success, _ = tester.test_admin_login()
     if not success:
-        print("❌ Cannot check admin status, stopping tests")
+        print("❌ Admin login failed, stopping tests")
         return 1
-    
-    has_admin = has_admin_response.get('has_admin', False)
-    
-    if not has_admin:
-        # No admin exists, test setup
-        print("No admin found, testing setup...")
-        success, _ = tester.test_admin_setup()
-        if not success:
-            print("❌ Admin setup failed, stopping tests")
-            return 1
-    else:
-        # Admin exists, test login
-        print("Admin exists, testing login...")
-        success, _ = tester.test_admin_login()
-        if not success:
-            print("❌ Admin login failed, stopping tests")
-            return 1
 
     # Test auth check
     success, _ = tester.test_auth_check()
@@ -513,15 +493,24 @@ def main():
         print("❌ Auth check failed, stopping tests")
         return 1
 
+    # Test new features: Site settings customization
+    print("\n🎨 Testing Site Settings Customization...")
+    tester.test_update_site_settings()
+    tester.test_get_site_settings()  # Verify changes
+
+    # Test new features: Password change
+    print("\n🔑 Testing Password Change...")
+    tester.test_password_change()
+
     # Clean slate - delete all existing entries
     print("\n🧹 Cleaning up existing data...")
     tester.test_delete_all_laps()
 
-    # Test track management
-    print("\n🏁 Testing Track Management...")
-    success, _ = tester.test_create_track()
-    if not success:
-        print("❌ Track creation failed")
+    # Test track management with image URLs
+    print("\n🏁 Testing Track Management with Images...")
+    success, _ = tester.test_create_track_with_image()
+    if success:
+        tester.test_update_track()
     
     # Test event settings
     print("\n📅 Testing Event Settings...")
@@ -550,6 +539,11 @@ def main():
     print("\n✏️  Testing Updates...")
     if len(tester.created_entries) > 0:
         tester.test_update_lap_entry(tester.created_entries[0])
+
+    # Test new features: Admin-only export
+    print("\n📤 Testing Admin Export Features...")
+    tester.test_admin_csv_export()
+    tester.test_admin_pdf_export_data()
 
     # Test deletion
     print("\n🗑️  Testing Deletion...")
