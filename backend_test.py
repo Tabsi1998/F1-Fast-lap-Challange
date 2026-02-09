@@ -188,16 +188,17 @@ class F1LapTimeAPITester:
         return success, response
 
     def test_create_lap_entry_basic(self):
-        """Test creating a basic lap entry (name only)"""
+        """Test creating a basic lap entry (admin only)"""
         success, response = self.run_test(
             "Create Basic Lap Entry",
             "POST",
-            "laps",
+            "admin/laps",
             200,
             data={
                 "driver_name": "Max Verstappen",
                 "lap_time_display": "1:23.456"
-            }
+            },
+            headers=self.get_auth_headers()
         )
         if success and 'id' in response:
             self.created_entries.append(response['id'])
@@ -205,33 +206,35 @@ class F1LapTimeAPITester:
         return success, response
 
     def test_create_lap_entry_with_team(self):
-        """Test creating lap entry with team"""
+        """Test creating lap entry with team (admin only)"""
         success, response = self.run_test(
             "Create Lap Entry with Team",
             "POST",
-            "laps",
+            "admin/laps",
             200,
             data={
                 "driver_name": "Lewis Hamilton",
                 "team": "Mercedes",
                 "lap_time_display": "1:24.123"
-            }
+            },
+            headers=self.get_auth_headers()
         )
         if success and 'id' in response:
             self.created_entries.append(response['id'])
         return success, response
 
     def test_invalid_time_format(self):
-        """Test invalid time format handling"""
+        """Test invalid time format handling (admin only)"""
         success, response = self.run_test(
             "Invalid Time Format",
             "POST",
-            "laps",
+            "admin/laps",
             400,
             data={
                 "driver_name": "Test Driver",
                 "lap_time_display": "invalid_time"
-            }
+            },
+            headers=self.get_auth_headers()
         )
         return success
 
