@@ -435,8 +435,13 @@ class F1LapTimeAPITester:
             ("admin/laps/fake-id", "DELETE", None),
             ("admin/laps", "DELETE", None),
             ("admin/tracks", "POST", {"name": "Test", "country": "Test"}),
+            ("admin/tracks/fake-id", "PUT", {"name": "Test", "country": "Test"}),
             ("admin/tracks/fake-id", "DELETE", None),
             ("admin/event", "PUT", {"status": "active"}),
+            ("admin/settings", "PUT", {"title_line1": "Test"}),
+            ("admin/password", "PUT", {"current_password": "test", "new_password": "test"}),
+            ("admin/export/csv", "GET", None),
+            ("admin/export/pdf", "GET", None),
             ("auth/check", "GET", None)
         ]
         
