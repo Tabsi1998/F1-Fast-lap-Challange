@@ -158,6 +158,10 @@ class DesignSettings(BaseModel):
     status_scheduled_color: str = "#FFA500"
     status_active_color: str = "#00FF00"
     status_finished_color: str = "#FF1E1E"
+    # Browser/Site settings
+    site_title: str = "F1 Fast Lap Challenge"
+    favicon_url: str = ""
+    show_badge: bool = False
 
 class DesignSettingsUpdate(BaseModel):
     title_line1: Optional[str] = None
