@@ -554,7 +554,8 @@ async def check_auth(admin = Depends(get_current_admin)):
         "authenticated": True, 
         "username": admin['username'],
         "email": admin_doc.get('email') if admin_doc else None,
-        "notifications_enabled": admin_doc.get('notifications_enabled', False) if admin_doc else False
+        "notifications_enabled": admin_doc.get('notifications_enabled', False) if admin_doc else False,
+        "must_change_password": admin_doc.get('must_change_password', False) if admin_doc else False
     }
 
 # ============== ADMIN ROUTES ==============
