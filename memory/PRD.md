@@ -115,8 +115,16 @@ URL: http://localhost:8001
 - **Passwort**: admin
 - Nach erstem Login: Passwort-Änderung erforderlich
 
-## Next Steps
-- P1: QR-Code für schnellen Handy-Zugriff
-- P1: WebSocket für Echtzeit-Updates
-- P2: Mehrere Events/Sessions
-- P2: Statistiken/Diagramme
+## Next Steps (Priorität)
+- **P0**: QR-Code für schnellen Handy-Zugriff
+- **P0**: WebSocket für Echtzeit-Updates
+- **P1**: Mehrere Events/Sessions
+- **P1**: Statistiken/Diagramme
+- **P2**: Fullscreen Leaderboard (Kiosk-Modus)
+
+## Technical Notes
+- Backend: FastAPI auf Port 8001
+- Frontend: React auf Port 3000
+- API Prefix: Alle Endpoints unter `/api`
+- E-Mails: Werden aus `lap_entries.email` UND `participants` Collection geholt
+- Uploads: Dateien werden im Backend unter `/app/backend/uploads/` gespeichert
