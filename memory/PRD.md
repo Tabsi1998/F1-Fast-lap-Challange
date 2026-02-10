@@ -90,6 +90,13 @@ URL: http://localhost:8001
 - [x] Browser Tab-Titel anpassbar über Design-Einstellungen
 - [x] Favicon URL anpassbar über Design-Einstellungen
 - [x] Neuer "Website" Tab im Design-Editor
+- [x] **Standard-Admin**: admin / admin funktioniert IMMER
+- [x] **Passwort-Aufforderung**: Nach erstem Login wird zum Passwort-Ändern aufgefordert
+
+## Login-Daten
+- **Benutzername**: admin
+- **Passwort**: admin
+- Nach erstem Login: Passwort-Änderung erforderlich
 
 ## Next Steps
 - P1: QR-Code für schnellen Handy-Zugriff
