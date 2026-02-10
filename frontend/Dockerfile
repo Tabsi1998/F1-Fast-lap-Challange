@@ -3,20 +3,28 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json yarn.lock* package-lock.json* ./
+# Copy all package files
+COPY package.json ./
+COPY yarn.lock* ./
+COPY craco.config.js* ./
+COPY tailwind.config.js* ./
+COPY postcss.config.js* ./
+COPY jsconfig.json* ./
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Install dependencies with yarn
+RUN yarn install --frozen-lockfile || yarn install
 
-# Copy source
-COPY . .
+# Copy source files
+COPY public/ ./public/
+COPY src/ ./src/
 
 # Set backend URL for build
 ENV REACT_APP_BACKEND_URL=/api
+ENV DISABLE_ESLINT_PLUGIN=true
+ENV CI=false
 
 # Build
-RUN npm run build
+RUN yarn build
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
