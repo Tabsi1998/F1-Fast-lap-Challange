@@ -94,9 +94,13 @@ URL: http://localhost:8001
 - [x] **Passwort-Aufforderung**: Nach erstem Login wird zum Passwort-Ändern aufgefordert
 - [x] **Infinite Loop Bug behoben**: React-Funktionen mit useCallback memoized
 - [x] **Docker API Fix**: /api/api → /api korrigiert
-- [x] **File Upload**: Bilder können direkt hochgeladen werden (nicht nur URLs)
+- [x] **File Upload System**: Bilder direkt hochladen (nicht nur URLs)
+  - Streckenbilder hochladen
+  - Hintergrundbilder hochladen
+  - Favicon hochladen
 - [x] **E-Mail bei Rundenzeit**: Optionales E-Mail-Feld beim Hinzufügen von Zeiten
 - [x] **Event-Dialog verbessert**: Status-Anzeige, Countdown-Timer, Strecken-Auswahl
+- [x] **python-multipart hinzugefügt**: Für Docker File-Uploads
 
 ## Login-Daten
 - **Benutzername**: admin
