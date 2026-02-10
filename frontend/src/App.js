@@ -124,6 +124,14 @@ const PublicLeaderboard = () => {
             setEntries(entriesRes.data);
             setEventStatus(statusRes.data);
             setDesign(designRes.data);
+            
+            // Update page title and favicon dynamically
+            const d = designRes.data;
+            document.title = d.site_title || 'F1 Fast Lap Challenge';
+            const faviconEl = document.getElementById('dynamic-favicon');
+            if (faviconEl && d.favicon_url) {
+                faviconEl.href = d.favicon_url;
+            }
         } catch (error) {
             console.error(error);
         } finally {
