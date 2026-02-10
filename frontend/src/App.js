@@ -878,41 +878,53 @@ const DesignEditor = ({ design, onSave, onClose, onUpload }) => {
         </div>
     );
     
-    const ImageUploadField = ({ label, value, field, description }) => (
-        <div className="space-y-2">
-            <Label className="text-[#A0A0A0] text-xs">{label}</Label>
-            <div className="flex gap-2">
-                <Input 
-                    value={value || ''} 
-                    onChange={(e) => setD({...d, [field]: e.target.value})} 
-                    placeholder="URL oder hochladen →" 
-                    className="bg-[#0A0A0A] border-[#333] flex-1" 
-                />
-                <label className="cursor-pointer">
+    const ImageUploadField = ({ label, value, field, description }) => {
+        const fileInputRef = useRef(null);
+        
+        return (
+            <div className="space-y-2">
+                <Label className="text-[#A0A0A0] text-xs">{label}</Label>
+                <div className="flex gap-2">
+                    <Input 
+                        value={value || ''} 
+                        onChange={(e) => setD({...d, [field]: e.target.value})} 
+                        placeholder="URL oder hochladen →" 
+                        className="bg-[#0A0A0A] border-[#333] flex-1" 
+                    />
                     <input 
+                        ref={fileInputRef}
                         type="file" 
                         accept="image/*" 
                         className="hidden"
-                        onChange={(e) => handleUpload(e.target.files?.[0], field)}
+                        onChange={(e) => {
+                            handleUpload(e.target.files?.[0], field);
+                            e.target.value = '';
+                        }}
                     />
-                    <Button type="button" variant="outline" className="border-[#333]" disabled={uploading}>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="border-[#333]" 
+                        disabled={uploading}
+                        onClick={() => fileInputRef.current?.click()}
+                    >
                         {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
                     </Button>
-                </label>
+                    {value && (
+                        <Button type="button" variant="outline" size="icon" className="border-[#333] text-[#FF1E1E]" onClick={() => setD({...d, [field]: ''})}>
+                            <X size={14} />
+                        </Button>
+                    )}
+                </div>
+                {description && <p className="text-xs text-[#666]">{description}</p>}
                 {value && (
-                    <Button type="button" variant="outline" size="icon" className="border-[#333] text-[#FF1E1E]" onClick={() => setD({...d, [field]: ''})}>
-                        <X size={14} />
-                    </Button>
+                    <div className="relative w-full h-20 rounded overflow-hidden border border-[#333]">
+                        <img src={value} alt="Vorschau" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+                    </div>
                 )}
             </div>
-            {description && <p className="text-xs text-[#666]">{description}</p>}
-            {value && (
-                <div className="relative w-full h-20 rounded overflow-hidden border border-[#333]">
-                    <img src={value} alt="Vorschau" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
-                </div>
-            )}
-        </div>
-    );
+        );
+    };
     
     return (
         <Tabs defaultValue="title" className="mt-4">
