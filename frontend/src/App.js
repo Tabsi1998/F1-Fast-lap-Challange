@@ -35,10 +35,30 @@ const API = `${BACKEND_URL}/api`;
 const useAuth = () => {
     const [token, setToken] = useState(localStorage.getItem('f1_token'));
     const [username, setUsername] = useState(localStorage.getItem('f1_username'));
-    const login = (newToken, newUsername) => { localStorage.setItem('f1_token', newToken); localStorage.setItem('f1_username', newUsername); setToken(newToken); setUsername(newUsername); };
-    const logout = () => { localStorage.removeItem('f1_token'); localStorage.removeItem('f1_username'); setToken(null); setUsername(null); };
+    const [mustChangePassword, setMustChangePassword] = useState(localStorage.getItem('f1_must_change_pw') === 'true');
+    
+    const login = (newToken, newUsername, needsPwChange = false) => { 
+        localStorage.setItem('f1_token', newToken); 
+        localStorage.setItem('f1_username', newUsername); 
+        localStorage.setItem('f1_must_change_pw', needsPwChange ? 'true' : 'false');
+        setToken(newToken); 
+        setUsername(newUsername);
+        setMustChangePassword(needsPwChange);
+    };
+    const logout = () => { 
+        localStorage.removeItem('f1_token'); 
+        localStorage.removeItem('f1_username'); 
+        localStorage.removeItem('f1_must_change_pw');
+        setToken(null); 
+        setUsername(null);
+        setMustChangePassword(false);
+    };
+    const clearPasswordFlag = () => {
+        localStorage.setItem('f1_must_change_pw', 'false');
+        setMustChangePassword(false);
+    };
     const getAuthHeader = () => token ? { Authorization: `Bearer ${token}` } : {};
-    return { token, username, login, logout, getAuthHeader, isAuthenticated: !!token };
+    return { token, username, mustChangePassword, login, logout, clearPasswordFlag, getAuthHeader, isAuthenticated: !!token };
 };
 
 // Timer Display Component
