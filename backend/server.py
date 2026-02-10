@@ -189,6 +189,9 @@ class DesignSettingsUpdate(BaseModel):
     status_scheduled_color: Optional[str] = None
     status_active_color: Optional[str] = None
     status_finished_color: Optional[str] = None
+    site_title: Optional[str] = None
+    favicon_url: Optional[str] = None
+    show_badge: Optional[bool] = None
 
 class Track(BaseModel):
     model_config = ConfigDict(extra="ignore")
