@@ -6,7 +6,7 @@ import { Toaster, toast } from "sonner";
 import { 
     Trophy, Timer, Flag, Plus, Trash2, Download, FileText, Edit2, 
     X, Check, Users, User, RefreshCw, Settings, LogOut, LogIn,
-    MapPin, Calendar, Clock, ChevronRight, Palette, Key, Image
+    MapPin, Calendar, Clock, ChevronRight, Palette, Key, Mail, Bell, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ import {
     Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 const API = `${BACKEND_URL}/api`;
 
 // Auth Hook
@@ -115,7 +115,6 @@ const PublicLeaderboard = () => {
             <div className="racing-overlay min-h-screen flex flex-col">
                 <Toaster position="top-right" />
                 
-                {/* Header with Title and Login */}
                 <header className="public-header">
                     <div className="flex items-center justify-between mb-2">
                         <div></div>
@@ -133,7 +132,6 @@ const PublicLeaderboard = () => {
                         <span style={{ color: siteSettings?.title_color3 || '#FFFFFF' }}>{siteSettings?.title_line3 || 'CHALLENGE'}</span>
                     </h1>
                     
-                    {/* Status Banner under title */}
                     {eventStatus && (
                         <div className="mt-3">
                             <StatusBanner status={eventStatus.status} message={eventStatus.message} />
@@ -141,7 +139,6 @@ const PublicLeaderboard = () => {
                     )}
                 </header>
                 
-                {/* Track Card */}
                 {eventStatus?.track && (
                     <div className="px-4 pt-4">
                         <div className="track-card max-w-sm mx-auto" data-testid="track-card">
@@ -159,7 +156,6 @@ const PublicLeaderboard = () => {
                     </div>
                 )}
                 
-                {/* Leaderboard */}
                 <div className="flex-1 overflow-auto">
                     <div className="leaderboard-list">
                         {entries.length === 0 ? (
@@ -196,37 +192,74 @@ const PublicLeaderboard = () => {
     );
 };
 
-// ==================== LOGIN PAGE ====================
+// ==================== LOGIN / SETUP PAGE ====================
 const LoginPage = () => {
     const navigate = useNavigate();
     const { login, isAuthenticated } = useAuth();
+    const [hasAdmin, setHasAdmin] = useState(null);
+    const [isSetup, setIsSetup] = useState(false);
     const [username, setUsername] = useState("");
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        if (isAuthenticated) navigate('/admin/dashboard');
+        if (isAuthenticated) {
+            navigate('/admin/dashboard');
+            return;
+        }
+        
+        axios.get(`${API}/auth/has-admin`).then(res => {
+            setHasAdmin(res.data.has_admin);
+            setIsSetup(!res.data.has_admin);
+        }).catch(() => setHasAdmin(false));
     }, [isAuthenticated, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!username.trim() || !password.trim()) {
-            toast.error("Bitte alle Felder ausfüllen");
-            return;
+        
+        if (isSetup) {
+            if (!username.trim() || !password.trim()) {
+                toast.error("Benutzername und Passwort erforderlich");
+                return;
+            }
+            if (password !== confirmPassword) {
+                toast.error("Passwörter stimmen nicht überein");
+                return;
+            }
+            if (password.length < 4) {
+                toast.error("Passwort muss mindestens 4 Zeichen haben");
+                return;
+            }
+        } else {
+            if (!username.trim() || !password.trim()) {
+                toast.error("Bitte alle Felder ausfüllen");
+                return;
+            }
         }
         
         setIsLoading(true);
         try {
-            const response = await axios.post(`${API}/auth/login`, { username, password });
+            const endpoint = isSetup ? `${API}/auth/setup` : `${API}/auth/login`;
+            const payload = isSetup 
+                ? { username, password, email: email || null }
+                : { username, password };
+            
+            const response = await axios.post(endpoint, payload);
             login(response.data.token, response.data.username);
-            toast.success("Erfolgreich angemeldet!");
+            toast.success(isSetup ? "Admin-Konto erstellt!" : "Erfolgreich angemeldet!");
             navigate('/admin/dashboard');
         } catch (error) {
-            toast.error(error.response?.data?.detail || "Ungültige Anmeldedaten");
+            toast.error(error.response?.data?.detail || "Fehler bei der Anmeldung");
         } finally {
             setIsLoading(false);
         }
     };
+
+    if (hasAdmin === null) {
+        return <div className="racing-bg min-h-screen"><div className="racing-overlay min-h-screen flex items-center justify-center"><div className="spinner"></div></div></div>;
+    }
 
     return (
         <div className="racing-bg" data-testid="login-page">
@@ -235,8 +268,14 @@ const LoginPage = () => {
                 <div className="login-card animate-fade-in">
                     <div className="text-center mb-6">
                         <Flag size={48} className="mx-auto text-[var(--primary-red)] mb-2" />
-                        <h1 className="login-title">Admin Login</h1>
-                        <p className="text-[var(--text-secondary)] text-sm">Standard: admin / admin</p>
+                        <h1 className="login-title">
+                            {isSetup ? "Admin einrichten" : "Admin Login"}
+                        </h1>
+                        {isSetup && (
+                            <p className="text-[var(--text-secondary)] text-sm">
+                                Erstelle dein Administrator-Konto
+                            </p>
+                        )}
                     </div>
                     
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -245,13 +284,33 @@ const LoginPage = () => {
                             <Input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
                                 placeholder="admin" className="input-racing" data-testid="username-input" />
                         </div>
+                        
+                        {isSetup && (
+                            <div className="form-field">
+                                <Label className="form-label">E-Mail (optional, für Benachrichtigungen)</Label>
+                                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="admin@example.com" className="input-racing" data-testid="email-input" />
+                            </div>
+                        )}
+                        
                         <div className="form-field">
                             <Label className="form-label">Passwort</Label>
                             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••" className="input-racing" data-testid="password-input" />
                         </div>
+                        
+                        {isSetup && (
+                            <div className="form-field">
+                                <Label className="form-label">Passwort bestätigen</Label>
+                                <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="••••••••" className="input-racing" data-testid="confirm-password-input" />
+                            </div>
+                        )}
+                        
                         <Button type="submit" className="btn-primary w-full" disabled={isLoading} data-testid="login-submit-btn">
-                            {isLoading ? <RefreshCw size={18} className="animate-spin" /> : <>Anmelden <ChevronRight size={18} className="ml-2" /></>}
+                            {isLoading ? <RefreshCw size={18} className="animate-spin" /> : (
+                                <>{isSetup ? "Konto erstellen" : "Anmelden"} <ChevronRight size={18} className="ml-2" /></>
+                            )}
                         </Button>
                     </form>
                     
@@ -273,6 +332,8 @@ const AdminDashboard = () => {
     const [tracks, setTracks] = useState([]);
     const [eventStatus, setEventStatus] = useState(null);
     const [siteSettings, setSiteSettings] = useState(null);
+    const [adminProfile, setAdminProfile] = useState(null);
+    const [smtpSettings, setSmtpSettings] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showTeam, setShowTeam] = useState(true);
     
@@ -289,6 +350,7 @@ const AdminDashboard = () => {
     const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
     const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
     const [eventDialogOpen, setEventDialogOpen] = useState(false);
+    const [emailDialogOpen, setEmailDialogOpen] = useState(false);
     
     // Track form
     const [newTrackName, setNewTrackName] = useState("");
@@ -314,6 +376,16 @@ const AdminDashboard = () => {
     const [selectedTrack, setSelectedTrack] = useState("");
     const [scheduledDate, setScheduledDate] = useState("");
     const [scheduledTime, setScheduledTime] = useState("");
+    
+    // Email/SMTP form
+    const [profileEmail, setProfileEmail] = useState("");
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const [smtpHost, setSmtpHost] = useState("");
+    const [smtpPort, setSmtpPort] = useState("587");
+    const [smtpUser, setSmtpUser] = useState("");
+    const [smtpPass, setSmtpPass] = useState("");
+    const [smtpFrom, setSmtpFrom] = useState("");
+    const [smtpEnabled, setSmtpEnabled] = useState(false);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -321,28 +393,31 @@ const AdminDashboard = () => {
             return;
         }
         axios.get(`${API}/auth/check`, { headers: getAuthHeader() })
+            .then(res => setAdminProfile(res.data))
             .catch(() => { logout(); navigate('/admin'); });
     }, [isAuthenticated, navigate, getAuthHeader, logout]);
 
     const fetchData = useCallback(async () => {
         if (!token) return;
         try {
-            const [entriesRes, tracksRes, statusRes, settingsRes] = await Promise.all([
+            const [entriesRes, tracksRes, statusRes, settingsRes, smtpRes] = await Promise.all([
                 axios.get(`${API}/laps`),
                 axios.get(`${API}/tracks`),
                 axios.get(`${API}/event/status`),
-                axios.get(`${API}/settings`)
+                axios.get(`${API}/settings`),
+                axios.get(`${API}/admin/smtp`, { headers: getAuthHeader() }).catch(() => ({ data: null }))
             ]);
             setEntries(entriesRes.data);
             setTracks(tracksRes.data);
             setEventStatus(statusRes.data);
             setSiteSettings(settingsRes.data);
+            if (smtpRes.data) setSmtpSettings(smtpRes.data);
         } catch (error) {
             console.error(error);
         } finally {
             setIsLoading(false);
         }
-    }, [token]);
+    }, [token, getAuthHeader]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -436,6 +511,63 @@ const AdminDashboard = () => {
         } catch (error) { toast.error("Fehler"); }
     };
 
+    const handleSaveEmailSettings = async () => {
+        try {
+            // Save profile
+            await axios.put(`${API}/admin/profile`, { email: profileEmail || null, notifications_enabled: notificationsEnabled }, { headers: getAuthHeader() });
+            
+            // Save SMTP
+            await axios.put(`${API}/admin/smtp`, {
+                host: smtpHost, port: parseInt(smtpPort) || 587, username: smtpUser,
+                password: smtpPass, from_email: smtpFrom, enabled: smtpEnabled
+            }, { headers: getAuthHeader() });
+            
+            toast.success("E-Mail Einstellungen gespeichert!");
+            setEmailDialogOpen(false);
+            
+            // Refresh admin profile
+            const res = await axios.get(`${API}/auth/check`, { headers: getAuthHeader() });
+            setAdminProfile(res.data);
+        } catch (error) { toast.error("Fehler beim Speichern"); }
+    };
+
+    const handleTestEmail = async () => {
+        try {
+            await axios.post(`${API}/admin/smtp/test`, {}, { headers: getAuthHeader() });
+            toast.success("Test-E-Mail gesendet!");
+        } catch (error) { toast.error(error.response?.data?.detail || "Fehler beim Senden"); }
+    };
+
+    const openEmailDialog = () => {
+        setProfileEmail(adminProfile?.email || '');
+        setNotificationsEnabled(adminProfile?.notifications_enabled || false);
+        setSmtpHost(smtpSettings?.host || '');
+        setSmtpPort(String(smtpSettings?.port || 587));
+        setSmtpUser(smtpSettings?.username || '');
+        setSmtpPass(smtpSettings?.password || '');
+        setSmtpFrom(smtpSettings?.from_email || '');
+        setSmtpEnabled(smtpSettings?.enabled || false);
+        setEmailDialogOpen(true);
+    };
+
+    const openSettingsDialog = () => {
+        setTitleLine1(siteSettings?.title_line1 || 'F1');
+        setTitleLine2(siteSettings?.title_line2 || 'FAST LAP');
+        setTitleLine3(siteSettings?.title_line3 || 'CHALLENGE');
+        setTitleColor1(siteSettings?.title_color1 || '#FFFFFF');
+        setTitleColor2(siteSettings?.title_color2 || '#FF1E1E');
+        setTitleColor3(siteSettings?.title_color3 || '#FFFFFF');
+        setSettingsDialogOpen(true);
+    };
+
+    const openEventDialog = () => {
+        setSelectedStatus(eventStatus?.status || 'inactive');
+        setSelectedTrack(eventStatus?.track?.id || '');
+        setScheduledDate(eventStatus?.scheduled_date || '');
+        setScheduledTime(eventStatus?.scheduled_time || '');
+        setEventDialogOpen(true);
+    };
+
     const handleExportCSV = () => window.open(`${API}/admin/export/csv`, '_blank');
 
     const handleExportPDF = async () => {
@@ -468,24 +600,6 @@ const AdminDashboard = () => {
         } catch (error) { toast.error("Fehler beim Export"); }
     };
 
-    const openSettingsDialog = () => {
-        setTitleLine1(siteSettings?.title_line1 || 'F1');
-        setTitleLine2(siteSettings?.title_line2 || 'FAST LAP');
-        setTitleLine3(siteSettings?.title_line3 || 'CHALLENGE');
-        setTitleColor1(siteSettings?.title_color1 || '#FFFFFF');
-        setTitleColor2(siteSettings?.title_color2 || '#FF1E1E');
-        setTitleColor3(siteSettings?.title_color3 || '#FFFFFF');
-        setSettingsDialogOpen(true);
-    };
-
-    const openEventDialog = () => {
-        setSelectedStatus(eventStatus?.status || 'inactive');
-        setSelectedTrack(eventStatus?.track?.id || '');
-        setScheduledDate(eventStatus?.scheduled_date || '');
-        setScheduledTime(eventStatus?.scheduled_time || '');
-        setEventDialogOpen(true);
-    };
-
     if (!isAuthenticated) return null;
     if (isLoading) return <div className="racing-bg min-h-screen"><div className="racing-overlay min-h-screen flex items-center justify-center"><div className="spinner"></div></div></div>;
 
@@ -494,7 +608,6 @@ const AdminDashboard = () => {
             <div className="racing-overlay min-h-screen">
                 <Toaster position="top-right" />
                 
-                {/* Header */}
                 <header className="header">
                     <div className="flex items-center gap-3">
                         <Settings size={24} className="text-[var(--primary-red)]" />
@@ -510,12 +623,15 @@ const AdminDashboard = () => {
                 {eventStatus && <StatusBanner status={eventStatus.status} message={eventStatus.message} />}
                 
                 <main className="p-4 max-w-5xl mx-auto">
-                    {/* Quick Actions */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                        <Button onClick={openSettingsDialog} className="btn-secondary" size="sm" data-testid="settings-btn"><Palette size={14} className="mr-1" /> Titel bearbeiten</Button>
+                        <Button onClick={openSettingsDialog} className="btn-secondary" size="sm" data-testid="settings-btn"><Palette size={14} className="mr-1" /> Titel</Button>
                         <Button onClick={openEventDialog} className="btn-secondary" size="sm" data-testid="event-btn"><Calendar size={14} className="mr-1" /> Event</Button>
                         <Button onClick={() => setTrackDialogOpen(true)} className="btn-secondary" size="sm" data-testid="tracks-btn"><MapPin size={14} className="mr-1" /> Strecken</Button>
                         <Button onClick={() => setPasswordDialogOpen(true)} className="btn-secondary" size="sm" data-testid="password-btn"><Key size={14} className="mr-1" /> Passwort</Button>
+                        <Button onClick={openEmailDialog} className="btn-secondary" size="sm" data-testid="email-btn">
+                            <Mail size={14} className="mr-1" /> E-Mail
+                            {adminProfile?.notifications_enabled && <Bell size={12} className="ml-1 text-green-500" />}
+                        </Button>
                         <Button onClick={handleExportCSV} className="btn-secondary" size="sm" disabled={entries.length === 0} data-testid="export-csv-btn"><FileText size={14} className="mr-1" /> CSV</Button>
                         <Button onClick={handleExportPDF} className="btn-secondary" size="sm" disabled={entries.length === 0} data-testid="export-pdf-btn"><Download size={14} className="mr-1" /> PDF</Button>
                     </div>
@@ -772,6 +888,70 @@ const AdminDashboard = () => {
                         <DialogFooter>
                             <Button onClick={() => setEventDialogOpen(false)} className="btn-secondary">Abbrechen</Button>
                             <Button onClick={handleUpdateEvent} className="btn-primary"><Check size={14} className="mr-1" /> Speichern</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+                
+                {/* Email Settings Dialog */}
+                <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+                    <DialogContent className="bg-[var(--bg-surface)] border-[var(--border-default)] max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle className="text-white font-heading"><Mail size={18} className="inline mr-2" />E-Mail Einstellungen</DialogTitle>
+                            <DialogDescription className="text-[var(--text-secondary)]">Erhalte Benachrichtigungen bei neuen Rundenzeiten</DialogDescription>
+                        </DialogHeader>
+                        <Tabs defaultValue="profile" className="py-4">
+                            <TabsList className="grid w-full grid-cols-2 bg-[var(--bg-default)]">
+                                <TabsTrigger value="profile">Profil</TabsTrigger>
+                                <TabsTrigger value="smtp">SMTP Server</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="profile" className="space-y-4 mt-4">
+                                <div className="form-field">
+                                    <Label className="form-label">Deine E-Mail Adresse</Label>
+                                    <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} placeholder="admin@example.com" className="input-racing" />
+                                </div>
+                                <div className="flex items-center justify-between p-3 bg-[var(--bg-default)] rounded border border-[var(--border-default)]">
+                                    <div className="flex items-center gap-2">
+                                        <Bell size={16} className="text-[var(--text-secondary)]" />
+                                        <span>Benachrichtigungen aktivieren</span>
+                                    </div>
+                                    <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
+                                </div>
+                                {notificationsEnabled && (
+                                    <p className="text-sm text-[var(--text-secondary)]">
+                                        Du erhältst eine E-Mail, wenn eine neue Rundenzeit eingetragen wird.
+                                    </p>
+                                )}
+                            </TabsContent>
+                            <TabsContent value="smtp" className="space-y-4 mt-4">
+                                <div className="flex items-center justify-between p-3 bg-[var(--bg-default)] rounded border border-[var(--border-default)]">
+                                    <span>SMTP aktivieren</span>
+                                    <Switch checked={smtpEnabled} onCheckedChange={setSmtpEnabled} />
+                                </div>
+                                {smtpEnabled && (
+                                    <>
+                                        <div className="grid grid-cols-[2fr_1fr] gap-2">
+                                            <div className="form-field"><Label className="form-label">SMTP Host</Label>
+                                                <Input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com" className="input-racing" /></div>
+                                            <div className="form-field"><Label className="form-label">Port</Label>
+                                                <Input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" className="input-racing" /></div>
+                                        </div>
+                                        <div className="form-field"><Label className="form-label">Benutzername</Label>
+                                            <Input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} placeholder="dein@email.com" className="input-racing" /></div>
+                                        <div className="form-field"><Label className="form-label">Passwort / App-Passwort</Label>
+                                            <Input type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="••••••••" className="input-racing" /></div>
+                                        <div className="form-field"><Label className="form-label">Absender E-Mail</Label>
+                                            <Input value={smtpFrom} onChange={(e) => setSmtpFrom(e.target.value)} placeholder="f1challenge@example.com" className="input-racing" /></div>
+                                        
+                                        <Button onClick={handleTestEmail} className="btn-secondary w-full" type="button">
+                                            <Send size={14} className="mr-2" /> Test-E-Mail senden
+                                        </Button>
+                                    </>
+                                )}
+                            </TabsContent>
+                        </Tabs>
+                        <DialogFooter>
+                            <Button onClick={() => setEmailDialogOpen(false)} className="btn-secondary">Abbrechen</Button>
+                            <Button onClick={handleSaveEmailSettings} className="btn-primary"><Check size={14} className="mr-1" /> Speichern</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
