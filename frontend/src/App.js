@@ -1125,6 +1125,7 @@ const EventEditor = ({ event, tracks, onSave }) => {
 const EmailEditor = ({ smtp, template, adminEmail, onSaveSmtp, onTestSmtp, onSaveTemplate, onPreview, preview, onSendAll, participantCount }) => {
     const [s, setS] = useState(smtp || { host: '', port: 587, username: '', password: '', from_email: '', from_name: '', enabled: false });
     const [t, setT] = useState(template || { subject: '', body_html: '', custom_footer: '', send_on_finish: true });
+    const [testEmail, setTestEmail] = useState(adminEmail || '');
     
     return (
         <Tabs defaultValue="smtp" className="mt-4">
@@ -1145,9 +1146,27 @@ const EmailEditor = ({ smtp, template, adminEmail, onSaveSmtp, onTestSmtp, onSav
                     <div><Label className="text-[#A0A0A0] text-xs">Passwort</Label><Input type="password" value={s.password} onChange={(e) => setS({...s, password: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
                     <div><Label className="text-[#A0A0A0] text-xs">Absender E-Mail</Label><Input value={s.from_email} onChange={(e) => setS({...s, from_email: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
                     <div><Label className="text-[#A0A0A0] text-xs">Absender Name</Label><Input value={s.from_name} onChange={(e) => setS({...s, from_name: e.target.value})} placeholder="F1 Challenge" className="bg-[#0A0A0A] border-[#333]" /></div>
-                    <div className="flex gap-2">
-                        <Button onClick={() => onSaveSmtp(s)} className="flex-1 bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
-                        <Button onClick={onTestSmtp} variant="outline" className="border-[#333]"><Send size={14} className="mr-1" /> Test</Button>
+                    <Button onClick={() => onSaveSmtp(s)} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
+                    
+                    <div className="border-t border-[#333] pt-4">
+                        <Label className="text-[#A0A0A0] text-xs">Test E-Mail senden an</Label>
+                        <div className="flex gap-2 mt-1">
+                            <Input 
+                                type="email" 
+                                value={testEmail} 
+                                onChange={(e) => setTestEmail(e.target.value)} 
+                                placeholder="test@example.com" 
+                                className="bg-[#0A0A0A] border-[#333] flex-1" 
+                            />
+                            <Button 
+                                onClick={() => onTestSmtp(testEmail)} 
+                                variant="outline" 
+                                className="border-[#333]"
+                                disabled={!testEmail}
+                            >
+                                <Send size={14} className="mr-1" /> Test
+                            </Button>
+                        </div>
                     </div>
                 </>}
             </TabsContent>
