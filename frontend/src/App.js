@@ -344,12 +344,15 @@ const AdminDashboard = () => {
     const [adminProfile, setAdminProfile] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showTeam, setShowTeam] = useState(true);
+    const [showEmail, setShowEmail] = useState(false);
     
     // Form states
     const [driverName, setDriverName] = useState("");
     const [team, setTeam] = useState("");
+    const [driverEmail, setDriverEmail] = useState("");
     const [lapTime, setLapTime] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     
     // Dialog states
     const [activeDialog, setActiveDialog] = useState(null);
