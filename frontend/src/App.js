@@ -325,7 +325,7 @@ const LoginPage = () => {
 // ==================== ADMIN DASHBOARD ====================
 const AdminDashboard = () => {
     const navigate = useNavigate();
-    const { token, username, logout, getAuthHeader, isAuthenticated } = useAuth();
+    const { token, username, mustChangePassword, logout, clearPasswordFlag, getAuthHeader, isAuthenticated } = useAuth();
     
     const [entries, setEntries] = useState([]);
     const [tracks, setTracks] = useState([]);
@@ -353,7 +353,7 @@ const AdminDashboard = () => {
     const [newTrackName, setNewTrackName] = useState("");
     const [newTrackCountry, setNewTrackCountry] = useState("");
     const [newTrackImage, setNewTrackImage] = useState("");
-    const [currentPassword, setCurrentPassword] = useState("");
+    const [currentPassword, setCurrentPassword] = useState("admin");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [emailPreview, setEmailPreview] = useState(null);
@@ -361,9 +361,16 @@ const AdminDashboard = () => {
     useEffect(() => {
         if (!isAuthenticated) { navigate('/admin'); return; }
         axios.get(`${API}/auth/check`, { headers: getAuthHeader() })
-            .then(res => setAdminProfile(res.data))
+            .then(res => {
+                setAdminProfile(res.data);
+                // Öffne Passwort-Dialog wenn Änderung erforderlich
+                if (res.data.must_change_password || mustChangePassword) {
+                    setActiveDialog('forcePassword');
+                    toast.info("Bitte ändern Sie Ihr Standard-Passwort!");
+                }
+            })
             .catch(() => { logout(); navigate('/admin'); });
-    }, [isAuthenticated, navigate, getAuthHeader, logout]);
+    }, [isAuthenticated, navigate, getAuthHeader, logout, mustChangePassword]);
 
     const fetchData = useCallback(async () => {
         if (!token) return;
