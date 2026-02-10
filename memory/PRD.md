@@ -43,21 +43,29 @@ Verwaltungssystem für F1 Fast Lap Challenge mit anpassbarem Titel, transparente
 
 ## Installation
 
-### One-Command (Linux/macOS)
+### Docker (Empfohlen) 🐳
+```bash
+chmod +x docker-install.sh && ./docker-install.sh
+```
+Oder: `docker compose up -d --build`
+
+**URL:** http://localhost:8080  
+**Admin:** admin / admin
+
+### Docker Befehle
+```bash
+docker compose up -d      # Starten
+docker compose down       # Stoppen
+docker compose logs -f    # Logs
+docker compose down -v    # Alles löschen
+```
+
+### Ohne Docker (Linux/macOS)
 ```bash
 chmod +x install.sh && ./install.sh
+./start.sh
 ```
-
-### Nach Installation
-- URL: http://localhost:8001
-- Admin: admin / admin
-
-### Autostart
-```bash
-sudo cp f1-lap-challenge.service /etc/systemd/system/
-sudo systemctl enable f1-lap-challenge
-sudo systemctl start f1-lap-challenge
-```
+URL: http://localhost:8001
 
 ## Test Results
 - Backend: 100%
