@@ -92,6 +92,11 @@ URL: http://localhost:8001
 - [x] Neuer "Website" Tab im Design-Editor
 - [x] **Standard-Admin**: admin / admin funktioniert IMMER
 - [x] **Passwort-Aufforderung**: Nach erstem Login wird zum Passwort-Ändern aufgefordert
+- [x] **Infinite Loop Bug behoben**: React-Funktionen mit useCallback memoized
+- [x] **Docker API Fix**: /api/api → /api korrigiert
+- [x] **File Upload**: Bilder können direkt hochgeladen werden (nicht nur URLs)
+- [x] **E-Mail bei Rundenzeit**: Optionales E-Mail-Feld beim Hinzufügen von Zeiten
+- [x] **Event-Dialog verbessert**: Status-Anzeige, Countdown-Timer, Strecken-Auswahl
 
 ## Login-Daten
 - **Benutzername**: admin
