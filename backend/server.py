@@ -869,6 +869,26 @@ app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+@app.on_event("startup")
+async def create_default_admin():
+    """Erstellt Standard-Admin wenn keiner existiert"""
+    existing = await db.admins.find_one({}, {"_id": 0})
+    if not existing:
+        password_hash = bcrypt.hashpw('admin'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        admin_doc = {
+            'id': str(uuid.uuid4()),
+            'username': 'admin',
+            'email': None,
+            'password_hash': password_hash,
+            'notifications_enabled': False,
+            'must_change_password': True,
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }
+        await db.admins.insert_one(admin_doc)
+        logging.info("✅ Standard-Admin erstellt: admin / admin")
+    else:
+        logging.info("ℹ️ Admin existiert bereits")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
