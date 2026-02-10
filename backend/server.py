@@ -1310,6 +1310,41 @@ async def send_event_results_email(event_id: str):
     except Exception as e:
         logging.error(f"Failed to send event results emails: {e}")
 
+# ============== QR CODE ==============
+
+@api_router.get("/events/{event_slug}/qr")
+async def get_event_qr_code(event_slug: str, base_url: Optional[str] = None):
+    """Generate QR code for event URL"""
+    event = await db.events.find_one({"slug": event_slug}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event nicht gefunden")
+    
+    # Build event URL
+    if base_url:
+        event_url = f"{base_url}/event/{event_slug}"
+    else:
+        event_url = f"/event/{event_slug}"
+    
+    # Generate QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(event_url)
+    qr.make(fit=True)
+    
+    # Create image with F1 colors (red on white)
+    img = qr.make_image(fill_color="#FF1E1E", back_color="white")
+    
+    # Save to bytes
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+    
+    return Response(content=img_bytes.getvalue(), media_type="image/png")
+
 # ============== FILE UPLOAD ==============
 @api_router.post("/upload")
 async def upload_file(file: UploadFile = File(...), admin = Depends(get_current_admin)):
