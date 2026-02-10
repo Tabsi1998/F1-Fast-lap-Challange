@@ -505,10 +505,10 @@ const AdminDashboard = () => {
         toast.success("SMTP gespeichert!"); fetchData();
     };
 
-    const handleTestSmtp = async () => {
+    const handleTestSmtp = async (testEmail = null) => {
         try {
-            await axios.post(`${API}/admin/smtp/test`, {}, { headers: getAuthHeader() });
-            toast.success("Test-E-Mail gesendet!");
+            await axios.post(`${API}/admin/smtp/test`, { test_email: testEmail }, { headers: getAuthHeader() });
+            toast.success(`Test-E-Mail gesendet!`);
         } catch (error) { toast.error(error.response?.data?.detail || "Fehler"); }
     };
 
@@ -667,7 +667,7 @@ const AdminDashboard = () => {
             <Dialog open={activeDialog === 'design'} onOpenChange={(open) => !open && setActiveDialog(null)}>
                 <DialogContent className="bg-[#1A1A1A] border-[#333] max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader><DialogTitle><Palette size={18} className="inline mr-2" />Design anpassen</DialogTitle></DialogHeader>
-                    {design && <DesignEditor design={design} onSave={handleSaveDesign} onClose={() => setActiveDialog(null)} />}
+                    {design && <DesignEditor design={design} onSave={handleSaveDesign} onClose={() => setActiveDialog(null)} onUpload={handleUploadImage} />}
                 </DialogContent>
             </Dialog>
             
@@ -700,23 +700,29 @@ const AdminDashboard = () => {
                                     placeholder="Bild-URL oder hochladen →" 
                                     className="bg-[#0A0A0A] border-[#333] flex-1" 
                                 />
-                                <label className="cursor-pointer">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="hidden"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                const url = await handleUploadImage(file);
-                                                if (url) setNewTrackImage(url);
-                                            }
-                                        }}
-                                    />
-                                    <Button type="button" variant="outline" className="border-[#333]" disabled={uploadingImage}>
-                                        {uploadingImage ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
-                                    </Button>
-                                </label>
+                                <input 
+                                    id="track-image-upload"
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const url = await handleUploadImage(file);
+                                            if (url) setNewTrackImage(url);
+                                        }
+                                        e.target.value = '';
+                                    }}
+                                />
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="border-[#333]" 
+                                    disabled={uploadingImage}
+                                    onClick={() => document.getElementById('track-image-upload')?.click()}
+                                >
+                                    {uploadingImage ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                                </Button>
                             </div>
                             {newTrackImage && (
                                 <div className="relative w-full h-24 rounded overflow-hidden border border-[#333]">
@@ -844,9 +850,10 @@ const AdminDashboard = () => {
                     <DialogHeader><DialogTitle>Eintrag bearbeiten</DialogTitle></DialogHeader>
                     {editEntry && (
                         <div className="space-y-4">
-                            <Input value={editEntry.driver_name} onChange={(e) => setEditEntry({...editEntry, driver_name: e.target.value})} className="bg-[#0A0A0A] border-[#333]" />
-                            <Input value={editEntry.team || ''} onChange={(e) => setEditEntry({...editEntry, team: e.target.value})} placeholder="Team" className="bg-[#0A0A0A] border-[#333]" />
-                            <Input value={editEntry.lap_time_display} onChange={(e) => setEditEntry({...editEntry, lap_time_display: e.target.value})} className="bg-[#0A0A0A] border-[#333] font-mono" />
+                            <Input value={editEntry.driver_name} onChange={(e) => setEditEntry({...editEntry, driver_name: e.target.value})} placeholder="Fahrername" className="bg-[#0A0A0A] border-[#333]" />
+                            <Input value={editEntry.team || ''} onChange={(e) => setEditEntry({...editEntry, team: e.target.value})} placeholder="Team (optional)" className="bg-[#0A0A0A] border-[#333]" />
+                            <Input value={editEntry.lap_time_display} onChange={(e) => setEditEntry({...editEntry, lap_time_display: e.target.value})} placeholder="1:23.456" className="bg-[#0A0A0A] border-[#333] font-mono" />
+                            <Input value={editEntry.email || ''} onChange={(e) => setEditEntry({...editEntry, email: e.target.value})} placeholder="E-Mail (optional)" className="bg-[#0A0A0A] border-[#333]" />
                             <Button onClick={handleUpdateEntry} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
                         </div>
                     )}
@@ -857,8 +864,17 @@ const AdminDashboard = () => {
 };
 
 // Design Editor Component
-const DesignEditor = ({ design, onSave, onClose }) => {
+const DesignEditor = ({ design, onSave, onClose, onUpload }) => {
     const [d, setD] = useState(design);
+    const [uploading, setUploading] = useState(false);
+    
+    const handleUpload = async (file, field) => {
+        if (!file || !onUpload) return;
+        setUploading(true);
+        const url = await onUpload(file);
+        if (url) setD({...d, [field]: url});
+        setUploading(false);
+    };
     
     const ColorInput = ({ label, value, onChange }) => (
         <div className="flex items-center gap-2">
@@ -867,6 +883,54 @@ const DesignEditor = ({ design, onSave, onClose }) => {
             <Input value={value} onChange={(e) => onChange(e.target.value)} className="w-24 bg-[#0A0A0A] border-[#333] text-xs font-mono" />
         </div>
     );
+    
+    const ImageUploadField = ({ label, value, field, description }) => {
+        const fileInputRef = useRef(null);
+        
+        return (
+            <div className="space-y-2">
+                <Label className="text-[#A0A0A0] text-xs">{label}</Label>
+                <div className="flex gap-2">
+                    <Input 
+                        value={value || ''} 
+                        onChange={(e) => setD({...d, [field]: e.target.value})} 
+                        placeholder="URL oder hochladen →" 
+                        className="bg-[#0A0A0A] border-[#333] flex-1" 
+                    />
+                    <input 
+                        ref={fileInputRef}
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                            handleUpload(e.target.files?.[0], field);
+                            e.target.value = '';
+                        }}
+                    />
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="border-[#333]" 
+                        disabled={uploading}
+                        onClick={() => fileInputRef.current?.click()}
+                    >
+                        {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                    </Button>
+                    {value && (
+                        <Button type="button" variant="outline" size="icon" className="border-[#333] text-[#FF1E1E]" onClick={() => setD({...d, [field]: ''})}>
+                            <X size={14} />
+                        </Button>
+                    )}
+                </div>
+                {description && <p className="text-xs text-[#666]">{description}</p>}
+                {value && (
+                    <div className="relative w-full h-20 rounded overflow-hidden border border-[#333]">
+                        <img src={value} alt="Vorschau" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+                    </div>
+                )}
+            </div>
+        );
+    };
     
     return (
         <Tabs defaultValue="title" className="mt-4">
@@ -929,30 +993,30 @@ const DesignEditor = ({ design, onSave, onClose }) => {
             </TabsContent>
             
             <TabsContent value="bg" className="space-y-4 mt-4">
-                <div><Label className="text-[#A0A0A0] text-xs">Hintergrundbild URL</Label>
-                    <Input value={d.bg_image_url} onChange={(e) => setD({...d, bg_image_url: e.target.value})} placeholder="https://..." className="bg-[#0A0A0A] border-[#333]" /></div>
+                <ImageUploadField 
+                    label="Hintergrundbild" 
+                    value={d.bg_image_url} 
+                    field="bg_image_url"
+                    description="Empfohlen: 1920x1080 oder größer"
+                />
                 <div><Label className="text-[#A0A0A0] text-xs">Overlay Transparenz: {d.bg_overlay_opacity}</Label>
                     <input type="range" min="0" max="1" step="0.05" value={d.bg_overlay_opacity} onChange={(e) => setD({...d, bg_overlay_opacity: parseFloat(e.target.value)})} className="w-full" /></div>
             </TabsContent>
             
             <TabsContent value="site" className="space-y-4 mt-4">
                 <div className="p-3 bg-[#0A0A0A] rounded border border-[#333]">
-                    <p className="text-sm text-[#A0A0A0] mb-2">🌐 Browser-Tab Einstellungen</p>
+                    <p className="text-sm text-[#A0A0A0]">🌐 Browser-Tab Einstellungen</p>
                 </div>
                 <div>
                     <Label className="text-[#A0A0A0] text-xs">Tab-Titel (Browser)</Label>
                     <Input value={d.site_title || ''} onChange={(e) => setD({...d, site_title: e.target.value})} placeholder="F1 Fast Lap Challenge" className="bg-[#0A0A0A] border-[#333]" />
                 </div>
-                <div>
-                    <Label className="text-[#A0A0A0] text-xs">Favicon URL (Icon im Browser-Tab)</Label>
-                    <Input value={d.favicon_url || ''} onChange={(e) => setD({...d, favicon_url: e.target.value})} placeholder="https://example.com/favicon.ico" className="bg-[#0A0A0A] border-[#333]" />
-                    {d.favicon_url && (
-                        <div className="mt-2 flex items-center gap-2">
-                            <img src={d.favicon_url} alt="Favicon preview" className="w-8 h-8 object-contain rounded border border-[#333]" onError={(e) => e.target.style.display = 'none'} />
-                            <span className="text-xs text-[#A0A0A0]">Vorschau</span>
-                        </div>
-                    )}
-                </div>
+                <ImageUploadField 
+                    label="Favicon (Browser-Icon)" 
+                    value={d.favicon_url} 
+                    field="favicon_url"
+                    description="Empfohlen: 32x32 oder 64x64 PNG/ICO"
+                />
             </TabsContent>
             
             <div className="flex gap-2 mt-6">
@@ -1012,10 +1076,10 @@ const EventEditor = ({ event, tracks, onSave }) => {
                         Keine Strecken vorhanden. Erstelle zuerst eine Strecke unter "Strecken".
                     </p>
                 ) : (
-                    <Select value={e.track_id} onValueChange={(v) => setE({...e, track_id: v})}>
+                    <Select value={e.track_id || "none"} onValueChange={(v) => setE({...e, track_id: v === "none" ? "" : v})}>
                         <SelectTrigger className="bg-[#0A0A0A] border-[#333]"><SelectValue placeholder="Strecke wählen..." /></SelectTrigger>
                         <SelectContent className="bg-[#1A1A1A] border-[#333]">
-                            <SelectItem value="">Keine Strecke</SelectItem>
+                            <SelectItem value="none">Keine Strecke</SelectItem>
                             {tracks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}, {t.country}</SelectItem>)}
                         </SelectContent>
                     </Select>
@@ -1061,6 +1125,7 @@ const EventEditor = ({ event, tracks, onSave }) => {
 const EmailEditor = ({ smtp, template, adminEmail, onSaveSmtp, onTestSmtp, onSaveTemplate, onPreview, preview, onSendAll, participantCount }) => {
     const [s, setS] = useState(smtp || { host: '', port: 587, username: '', password: '', from_email: '', from_name: '', enabled: false });
     const [t, setT] = useState(template || { subject: '', body_html: '', custom_footer: '', send_on_finish: true });
+    const [testEmail, setTestEmail] = useState(adminEmail || '');
     
     return (
         <Tabs defaultValue="smtp" className="mt-4">
@@ -1081,9 +1146,27 @@ const EmailEditor = ({ smtp, template, adminEmail, onSaveSmtp, onTestSmtp, onSav
                     <div><Label className="text-[#A0A0A0] text-xs">Passwort</Label><Input type="password" value={s.password} onChange={(e) => setS({...s, password: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
                     <div><Label className="text-[#A0A0A0] text-xs">Absender E-Mail</Label><Input value={s.from_email} onChange={(e) => setS({...s, from_email: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
                     <div><Label className="text-[#A0A0A0] text-xs">Absender Name</Label><Input value={s.from_name} onChange={(e) => setS({...s, from_name: e.target.value})} placeholder="F1 Challenge" className="bg-[#0A0A0A] border-[#333]" /></div>
-                    <div className="flex gap-2">
-                        <Button onClick={() => onSaveSmtp(s)} className="flex-1 bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
-                        <Button onClick={onTestSmtp} variant="outline" className="border-[#333]"><Send size={14} className="mr-1" /> Test</Button>
+                    <Button onClick={() => onSaveSmtp(s)} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
+                    
+                    <div className="border-t border-[#333] pt-4">
+                        <Label className="text-[#A0A0A0] text-xs">Test E-Mail senden an</Label>
+                        <div className="flex gap-2 mt-1">
+                            <Input 
+                                type="email" 
+                                value={testEmail} 
+                                onChange={(e) => setTestEmail(e.target.value)} 
+                                placeholder="test@example.com" 
+                                className="bg-[#0A0A0A] border-[#333] flex-1" 
+                            />
+                            <Button 
+                                onClick={() => onTestSmtp(testEmail)} 
+                                variant="outline" 
+                                className="border-[#333]"
+                                disabled={!testEmail}
+                            >
+                                <Send size={14} className="mr-1" /> Test
+                            </Button>
+                        </div>
                     </div>
                 </>}
             </TabsContent>
