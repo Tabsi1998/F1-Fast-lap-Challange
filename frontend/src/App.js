@@ -667,7 +667,7 @@ const AdminDashboard = () => {
             <Dialog open={activeDialog === 'design'} onOpenChange={(open) => !open && setActiveDialog(null)}>
                 <DialogContent className="bg-[#1A1A1A] border-[#333] max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader><DialogTitle><Palette size={18} className="inline mr-2" />Design anpassen</DialogTitle></DialogHeader>
-                    {design && <DesignEditor design={design} onSave={handleSaveDesign} onClose={() => setActiveDialog(null)} />}
+                    {design && <DesignEditor design={design} onSave={handleSaveDesign} onClose={() => setActiveDialog(null)} onUpload={handleUploadImage} />}
                 </DialogContent>
             </Dialog>
             
