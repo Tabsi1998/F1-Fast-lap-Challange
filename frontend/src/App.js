@@ -674,7 +674,10 @@ const AdminDashboard = () => {
             {/* Event Dialog */}
             <Dialog open={activeDialog === 'event'} onOpenChange={(open) => !open && setActiveDialog(null)}>
                 <DialogContent className="bg-[#1A1A1A] border-[#333]">
-                    <DialogHeader><DialogTitle><Calendar size={18} className="inline mr-2" />Event Einstellungen</DialogTitle></DialogHeader>
+                    <DialogHeader>
+                        <DialogTitle><Calendar size={18} className="inline mr-2" />Event Einstellungen</DialogTitle>
+                        <DialogDescription>Verwalte den Status und die Strecke für das aktuelle Rennen</DialogDescription>
+                    </DialogHeader>
                     {eventStatus && <EventEditor event={eventStatus} tracks={tracks} onSave={handleSaveEvent} />}
                 </DialogContent>
             </Dialog>
