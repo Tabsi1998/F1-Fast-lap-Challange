@@ -1,104 +1,142 @@
-# F1 Fast Lap Challenge
+# F1 Fast Lap Challenge 🏎️
 
-## 🏎️ Features
+Ein einfaches System zur Verwaltung von F1 Fast Lap Challenges mit Rangliste, Admin-Bereich und Export-Funktionen.
 
-- **Öffentliche Rangliste** - Vollbild-Ansicht für Zuschauer (mobile-optimiert)
-- **Admin-Bereich** - Passwort-geschützt (Standard: admin/admin)
-- **Anpassbarer Titel** - Eigene Bezeichnung mit Farbauswahl
-- **Strecken-Management** - Mit Bild-Upload
-- **Event-Status** - "Kein Rennen" / "Geplant" / "Läuft" / "Abgeschlossen"
-- **Export** - CSV & PDF (nur für Admins)
-- **Transparente Einträge** - Modernes Design
+## 🐳 Docker Installation (Empfohlen)
 
-## 🚀 Quick Start
+### Voraussetzungen
+- [Docker](https://www.docker.com/products/docker-desktop) installiert
+- [Docker Compose](https://docs.docker.com/compose/install/) (meist bei Docker dabei)
 
-### Option 1: One-Command Installation (Linux/macOS)
+### One-Command Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/your-repo/f1-lap-challenge/main/install.sh | bash
+# Repository klonen oder Dateien herunterladen
+git clone <repo-url>
+cd f1-fast-lap-challenge
+
+# Installation starten
+chmod +x docker-install.sh
+./docker-install.sh
 ```
 
-Oder manuell:
+**Oder manuell:**
 
 ```bash
-chmod +x install.sh
-./install.sh
+docker compose up -d --build
 ```
 
-### Option 2: Docker
+### Nach der Installation
+
+| Was | Wo |
+|-----|-----|
+| **App öffnen** | http://localhost:8080 |
+| **Admin Login** | `admin` / `admin` |
+
+### Docker Befehle
 
 ```bash
-docker-compose up -d
+# Starten
+docker compose up -d
+
+# Stoppen
+docker compose down
+
+# Neustart
+docker compose restart
+
+# Logs anzeigen
+docker compose logs -f
+
+# Alles löschen (inkl. Daten)
+docker compose down -v
 ```
 
-### Option 3: Manuelle Installation
+---
 
-#### Voraussetzungen
-- Node.js 18+
-- Python 3.10+
-- MongoDB 6+
-
-#### Backend
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python server.py
-```
-
-#### Frontend
-```bash
-cd frontend
-npm install
-npm start
-```
-
-## 📱 Zugriff
-
-| Seite | URL |
-|-------|-----|
-| Rangliste (öffentlich) | http://localhost:3000 |
-| Admin Login | http://localhost:3000/admin |
-| API | http://localhost:8001/api |
-
-## 🔐 Standard Login
-
-- **Benutzername:** admin
-- **Passwort:** admin
-
-⚠️ **Wichtig:** Passwort nach erstem Login ändern!
-
-## 📖 Bedienung
+## 🖥️ Features
 
 ### Öffentliche Seite (/)
-- Zeigt Rangliste mit automatischer Aktualisierung (10 Sek.)
-- Transparente Einträge mit Top 3 Hervorhebung
-- Admin-Button im Header
+- 📊 Live-Rangliste mit Auto-Refresh
+- 🏆 Top 3 mit Gold/Silber/Bronze
+- 📱 Mobile-optimiert
+- 🏁 Event-Status Banner
 
-### Admin Dashboard (/admin/dashboard)
-1. **Titel bearbeiten** - Eigener Name + Farben
-2. **Event** - Status setzen (Kein Rennen, Geplant, Läuft, Fertig)
-3. **Strecken** - Mit Bild-URL hinzufügen
-4. **Rundenzeiten** - Format: M:SS.mmm (z.B. 1:23.456)
-5. **Export** - CSV/PDF nur im Admin-Bereich
-6. **Passwort** - Im Admin änderbar
+### Admin Bereich (/admin)
+- ✏️ Anpassbarer Titel mit Farben
+- 🏎️ Strecken mit Bildern verwalten
+- ⏱️ Rundenzeiten eintragen
+- 📤 CSV & PDF Export
+- 🔐 Passwort ändern
 
-## 🖼️ Streckenbilder
+---
 
-Empfohlene Quellen für Streckenbilder:
-- https://unsplash.com (Suche: "race track", "circuit")
-- https://www.pexels.com
-- Eigene Bilder hochladen (URL eingeben)
+## 📁 Projektstruktur
 
-## 🛠️ Autostart (Linux)
-
-```bash
-sudo cp f1-lap-challenge.service /etc/systemd/system/
-sudo systemctl enable f1-lap-challenge
-sudo systemctl start f1-lap-challenge
+```
+f1-fast-lap-challenge/
+├── docker-compose.yml      # Docker Konfiguration
+├── docker-install.sh       # Installations-Script
+├── backend/
+│   ├── Dockerfile
+│   ├── server.py           # FastAPI Backend
+│   ├── requirements.txt
+│   └── .env
+└── frontend/
+    ├── Dockerfile
+    ├── nginx.conf          # Reverse Proxy Config
+    └── src/
 ```
 
-## 📝 Lizenz
+---
 
-MIT License - Frei verwendbar für private Events!
+## ⚙️ Konfiguration
+
+### Port ändern
+
+In `docker-compose.yml`:
+```yaml
+frontend:
+  ports:
+    - "3000:80"  # Ändere 8080 zu gewünschtem Port
+```
+
+### Daten sichern
+
+Die MongoDB-Daten werden in einem Docker Volume gespeichert:
+```bash
+# Volume anzeigen
+docker volume ls | grep mongodb
+
+# Backup erstellen
+docker run --rm -v f1-fast-lap-challenge_mongodb_data:/data -v $(pwd):/backup alpine tar czf /backup/mongodb-backup.tar.gz /data
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Container startet nicht
+```bash
+docker compose logs backend
+docker compose logs frontend
+```
+
+### Port bereits belegt
+```bash
+# Anderen Port verwenden in docker-compose.yml
+ports:
+  - "3000:80"  # statt 8080
+```
+
+### Daten zurücksetzen
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+---
+
+## 📄 Lizenz
+
+MIT - Frei verwendbar für private Events!

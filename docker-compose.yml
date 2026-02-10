@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # MongoDB Datenbank
+  mongodb:
+    image: mongo:7
+    container_name: f1-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - f1-network
+
+  # Backend (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: f1-backend
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=f1_fast_lap_challenge
+      - CORS_ORIGINS=*
+      - JWT_SECRET=f1-fast-lap-challenge-secret-change-me
+    depends_on:
+      - mongodb
+    networks:
+      - f1-network
+
+  # Frontend (React) + Nginx Reverse Proxy
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: f1-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - f1-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  f1-network:
+    driver: bridge
