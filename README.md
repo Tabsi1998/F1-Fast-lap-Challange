@@ -36,6 +36,19 @@ Nach der Installation ist die App erreichbar über:
 ### Admin Login
 - **Benutzer:** `admin`
 - **Passwort:** `admin`
+- ⚠️ Bei der ersten Anmeldung werden Sie aufgefordert, das Passwort zu ändern!
+
+---
+
+## ⚠️ Nach Updates neu bauen!
+
+Wenn Sie Updates von GitHub holen:
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+Das `--build` ist wichtig, damit die Änderungen übernommen werden!
 
 ---
 
