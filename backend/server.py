@@ -628,29 +628,54 @@ async def update_smtp_settings(settings: SmtpSettingsUpdate, admin = Depends(get
     await db.smtp_settings.update_one({"id": "smtp_settings"}, {"$set": update_data}, upsert=True)
     return {"message": "SMTP Einstellungen gespeichert"}
 
+class SmtpTestRequest(BaseModel):
+    test_email: Optional[str] = None
+
 @api_router.post("/admin/smtp/test")
-async def test_smtp(admin = Depends(get_current_admin)):
+async def test_smtp(request: SmtpTestRequest = SmtpTestRequest(), admin = Depends(get_current_admin)):
     smtp_settings = await db.smtp_settings.find_one({"id": "smtp_settings"}, {"_id": 0})
     if not smtp_settings:
-        raise HTTPException(status_code=400, detail="SMTP nicht konfiguriert")
+        raise HTTPException(status_code=400, detail="SMTP nicht konfiguriert. Bitte erst SMTP-Einstellungen speichern.")
     
-    admin_doc = await db.admins.find_one({"username": admin['username']}, {"_id": 0})
-    if not admin_doc or not admin_doc.get('email'):
-        raise HTTPException(status_code=400, detail="Keine E-Mail hinterlegt")
+    # Validate SMTP settings
+    if not smtp_settings.get('host'):
+        raise HTTPException(status_code=400, detail="SMTP Host nicht konfiguriert")
+    if not smtp_settings.get('from_email'):
+        raise HTTPException(status_code=400, detail="Absender E-Mail nicht konfiguriert")
+    if not smtp_settings.get('username'):
+        raise HTTPException(status_code=400, detail="SMTP Benutzername nicht konfiguriert")
+    if not smtp_settings.get('password'):
+        raise HTTPException(status_code=400, detail="SMTP Passwort nicht konfiguriert")
+    
+    # Get recipient email - either from request or from admin profile
+    recipient_email = request.test_email
+    if not recipient_email:
+        admin_doc = await db.admins.find_one({"username": admin['username']}, {"_id": 0})
+        if admin_doc:
+            recipient_email = admin_doc.get('email')
+    
+    if not recipient_email:
+        raise HTTPException(status_code=400, detail="Keine Test-E-Mail-Adresse angegeben und keine E-Mail im Admin-Profil hinterlegt")
     
     try:
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = "🏎️ Test E-Mail"
+        msg['Subject'] = "🏎️ Test E-Mail - F1 Fast Lap Challenge"
         msg['From'] = f"{smtp_settings.get('from_name', 'F1 Challenge')} <{smtp_settings['from_email']}>"
-        msg['To'] = admin_doc['email']
-        msg.attach(MIMEText("<h1 style='color: #FF1E1E;'>✅ Test erfolgreich!</h1><p>SMTP funktioniert.</p>", 'html'))
+        msg['To'] = recipient_email
+        msg.attach(MIMEText("<h1 style='color: #FF1E1E;'>✅ Test erfolgreich!</h1><p>SMTP funktioniert korrekt.</p>", 'html'))
         
         with smtplib.SMTP(smtp_settings['host'], smtp_settings['port']) as server:
             server.starttls()
             server.login(smtp_settings['username'], smtp_settings['password'])
             server.send_message(msg)
         
-        return {"message": "Test-E-Mail gesendet!"}
+        return {"message": f"Test-E-Mail erfolgreich an {recipient_email} gesendet!"}
+    except smtplib.SMTPAuthenticationError as e:
+        raise HTTPException(status_code=500, detail=f"SMTP Authentifizierung fehlgeschlagen: Benutzername oder Passwort falsch")
+    except smtplib.SMTPConnectError as e:
+        raise HTTPException(status_code=500, detail=f"Verbindung zum SMTP-Server fehlgeschlagen: {smtp_settings['host']}:{smtp_settings['port']}")
+    except smtplib.SMTPRecipientsRefused as e:
+        raise HTTPException(status_code=500, detail=f"Empfänger abgelehnt: {recipient_email}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SMTP Fehler: {str(e)}")
 
