@@ -821,6 +821,12 @@ async def export_csv(admin = Depends(get_current_admin)):
     output.seek(0)
     return StreamingResponse(io.BytesIO(output.getvalue().encode('utf-8')), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=lap_times.csv"})
 
+@api_router.delete("/admin/reset-admin")
+async def reset_admin(admin = Depends(get_current_admin)):
+    """Delete current admin and all data for fresh setup"""
+    await db.admins.delete_many({})
+    return {"message": "Admin gelöscht - Neues Setup erforderlich"}
+
 @api_router.get("/admin/export/pdf")
 async def export_pdf_data(admin = Depends(get_current_admin)):
     entries = await db.lap_entries.find({}, {"_id": 0}).sort("lap_time_ms", 1).to_list(1000)
