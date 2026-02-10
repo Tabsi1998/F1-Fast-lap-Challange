@@ -1066,6 +1066,9 @@ async def create_event(event: EventCreate, admin = Depends(get_current_admin)):
     
     await db.events.insert_one(doc)
     
+    # Remove _id for response
+    doc.pop('_id', None)
+    
     return {"message": "Event erstellt", "event": doc}
 
 @api_router.put("/admin/events/{event_id}")
