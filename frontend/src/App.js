@@ -443,12 +443,15 @@ const AdminDashboard = () => {
 
     const handleDeleteTrack = async (id) => { await axios.delete(`${API}/admin/tracks/${id}`, { headers: getAuthHeader() }); toast.success("Gelöscht!"); fetchData(); };
 
-    const handleChangePassword = async () => {
+    const handleChangePassword = async (isForced = false) => {
         if (newPassword !== confirmPassword) { toast.error("Passwörter stimmen nicht überein"); return; }
+        if (newPassword.length < 4) { toast.error("Neues Passwort min. 4 Zeichen"); return; }
         try {
             await axios.put(`${API}/admin/password`, { current_password: currentPassword, new_password: newPassword }, { headers: getAuthHeader() });
-            toast.success("Passwort geändert!"); setActiveDialog(null);
-            setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+            toast.success("Passwort geändert!"); 
+            setActiveDialog(null);
+            setCurrentPassword("admin"); setNewPassword(""); setConfirmPassword("");
+            clearPasswordFlag();
         } catch (error) { toast.error(error.response?.data?.detail || "Fehler"); }
     };
 
