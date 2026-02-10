@@ -249,35 +249,24 @@ const LoginPage = () => {
     const navigate = useNavigate();
     const { login, isAuthenticated } = useAuth();
     const [hasAdmin, setHasAdmin] = useState(null);
-    const [isSetup, setIsSetup] = useState(false);
-    const [username, setUsername] = useState("");
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("admin");
     const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (isAuthenticated) { navigate('/admin/dashboard'); return; }
-        axios.get(`${API}/auth/has-admin`).then(res => { setHasAdmin(res.data.has_admin); setIsSetup(!res.data.has_admin); }).catch(() => setHasAdmin(false));
+        axios.get(`${API}/auth/has-admin`).then(res => { setHasAdmin(res.data.has_admin); }).catch(() => setHasAdmin(true));
     }, [isAuthenticated, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (isSetup) {
-            if (!username.trim() || !password.trim()) { toast.error("Benutzername und Passwort erforderlich"); return; }
-            if (password !== confirmPassword) { toast.error("Passwörter stimmen nicht überein"); return; }
-            if (password.length < 4) { toast.error("Passwort min. 4 Zeichen"); return; }
-        } else {
-            if (!username.trim() || !password.trim()) { toast.error("Bitte alle Felder ausfüllen"); return; }
-        }
+        if (!username.trim() || !password.trim()) { toast.error("Bitte alle Felder ausfüllen"); return; }
         
         setIsLoading(true);
         try {
-            const endpoint = isSetup ? `${API}/auth/setup` : `${API}/auth/login`;
-            const payload = isSetup ? { username, password, email: email || null } : { username, password };
-            const response = await axios.post(endpoint, payload);
-            login(response.data.token, response.data.username);
-            toast.success(isSetup ? "Admin erstellt!" : "Angemeldet!");
+            const response = await axios.post(`${API}/auth/login`, { username, password });
+            login(response.data.token, response.data.username, response.data.must_change_password);
+            toast.success("Angemeldet!");
             navigate('/admin/dashboard');
         } catch (error) {
             toast.error(error.response?.data?.detail || "Fehler");
@@ -294,21 +283,17 @@ const LoginPage = () => {
             <div className="w-full max-w-md p-8 rounded-xl bg-[#1A1A1A] border border-[#333]">
                 <div className="text-center mb-6">
                     <Flag size={48} className="mx-auto text-[#FF1E1E] mb-2" />
-                    <h1 className="text-2xl font-bold text-white">{isSetup ? "Admin einrichten" : "Admin Login"}</h1>
-                    {isSetup && <p className="text-[#A0A0A0] text-sm mt-2">Erstelle dein Administrator-Konto</p>}
+                    <h1 className="text-2xl font-bold text-white">Admin Login</h1>
+                    <p className="text-[#A0A0A0] text-sm mt-2">Standard: admin / admin</p>
                 </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div><Label className="text-[#A0A0A0] text-xs uppercase">Benutzername</Label>
                         <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" className="bg-[#0A0A0A] border-[#333] text-white" /></div>
-                    {isSetup && <div><Label className="text-[#A0A0A0] text-xs uppercase">E-Mail (optional)</Label>
-                        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" className="bg-[#0A0A0A] border-[#333] text-white" /></div>}
                     <div><Label className="text-[#A0A0A0] text-xs uppercase">Passwort</Label>
-                        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="bg-[#0A0A0A] border-[#333] text-white" /></div>
-                    {isSetup && <div><Label className="text-[#A0A0A0] text-xs uppercase">Passwort bestätigen</Label>
-                        <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-[#0A0A0A] border-[#333] text-white" /></div>}
+                        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="admin" className="bg-[#0A0A0A] border-[#333] text-white" /></div>
                     <Button type="submit" className="w-full bg-[#FF1E1E] hover:bg-[#D61A1A] text-white" disabled={isLoading}>
-                        {isLoading ? <RefreshCw size={18} className="animate-spin" /> : <>{isSetup ? "Erstellen" : "Anmelden"} <ChevronRight size={18} className="ml-2" /></>}
+                        {isLoading ? <RefreshCw size={18} className="animate-spin" /> : <>Anmelden <ChevronRight size={18} className="ml-2" /></>}
                     </Button>
                 </form>
                 <Link to="/" className="block mt-6 text-center text-sm text-[#A0A0A0] hover:text-[#FF1E1E]">← Zur Rangliste</Link>
