@@ -238,6 +238,7 @@ class LapEntry(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     driver_name: str
     team: Optional[str] = None
+    email: Optional[str] = None
     lap_time_ms: int
     lap_time_display: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -245,6 +246,7 @@ class LapEntry(BaseModel):
 class LapEntryCreate(BaseModel):
     driver_name: str
     team: Optional[str] = None
+    email: Optional[str] = None
     lap_time_display: str
 
 class LapEntryUpdate(BaseModel):
