@@ -423,14 +423,37 @@ const AdminDashboard = () => {
     }, [fetchData]);
 
     // Handlers
+    const handleUploadImage = async (file) => {
+        if (!file) return null;
+        setUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await axios.post(`${API}/upload`, formData, { 
+                headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' }
+            });
+            return res.data.url;
+        } catch (error) {
+            toast.error("Upload fehlgeschlagen");
+            return null;
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+    
     const handleAddEntry = async (e) => {
         e.preventDefault();
         if (!driverName.trim() || !lapTime.trim()) { toast.error("Fahrername und Zeit erforderlich"); return; }
         if (!/^\d{1,2}:\d{2}\.\d{1,3}$/.test(lapTime)) { toast.error("Format: M:SS.mmm"); return; }
         setIsSubmitting(true);
         try {
-            await axios.post(`${API}/admin/laps`, { driver_name: driverName.trim(), team: showTeam ? team.trim() || null : null, lap_time_display: lapTime.trim() }, { headers: getAuthHeader() });
-            setDriverName(""); setTeam(""); setLapTime("");
+            await axios.post(`${API}/admin/laps`, { 
+                driver_name: driverName.trim(), 
+                team: showTeam ? team.trim() || null : null, 
+                email: showEmail ? driverEmail.trim() || null : null,
+                lap_time_display: lapTime.trim() 
+            }, { headers: getAuthHeader() });
+            setDriverName(""); setTeam(""); setDriverEmail(""); setLapTime("");
             toast.success("Hinzugefügt!");
             fetchData();
         } catch (error) { toast.error(error.response?.data?.detail || "Fehler"); }
