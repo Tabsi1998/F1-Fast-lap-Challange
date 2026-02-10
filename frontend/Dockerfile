@@ -18,8 +18,8 @@ RUN yarn install --frozen-lockfile || yarn install
 COPY public/ ./public/
 COPY src/ ./src/
 
-# Set backend URL for build
-ENV REACT_APP_BACKEND_URL=/api
+# Set backend URL for build (leer = nginx proxy verwendet /api)
+ENV REACT_APP_BACKEND_URL=
 ENV DISABLE_ESLINT_PLUGIN=true
 ENV CI=false
 
