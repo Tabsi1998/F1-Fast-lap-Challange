@@ -505,10 +505,10 @@ const AdminDashboard = () => {
         toast.success("SMTP gespeichert!"); fetchData();
     };
 
-    const handleTestSmtp = async () => {
+    const handleTestSmtp = async (testEmail = null) => {
         try {
-            await axios.post(`${API}/admin/smtp/test`, {}, { headers: getAuthHeader() });
-            toast.success("Test-E-Mail gesendet!");
+            await axios.post(`${API}/admin/smtp/test`, { test_email: testEmail }, { headers: getAuthHeader() });
+            toast.success(`Test-E-Mail gesendet!`);
         } catch (error) { toast.error(error.response?.data?.detail || "Fehler"); }
     };
 
