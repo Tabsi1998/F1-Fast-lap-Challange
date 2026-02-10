@@ -871,6 +871,42 @@ async def export_pdf_data(admin = Depends(get_current_admin)):
     
     return {"entries": result, "exported_at": datetime.now(timezone.utc).isoformat(), "track": track_info, "design": design}
 
+# ============== FILE UPLOAD ==============
+@api_router.post("/upload")
+async def upload_file(file: UploadFile = File(...), admin = Depends(get_current_admin)):
+    """Upload image file and return URL"""
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Nur Bilder erlaubt (JPG, PNG, GIF, WebP, SVG)")
+    
+    # Generate unique filename
+    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    filename = f"{uuid.uuid4()}.{ext}"
+    file_path = UPLOAD_DIR / filename
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    return {"filename": filename, "url": f"/api/uploads/{filename}"}
+
+@api_router.get("/uploads/{filename}")
+async def get_uploaded_file(filename: str):
+    """Serve uploaded file"""
+    file_path = UPLOAD_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden")
+    
+    # Determine content type
+    ext = filename.split('.')[-1].lower()
+    content_types = {
+        'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+        'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml'
+    }
+    content_type = content_types.get(ext, 'application/octet-stream')
+    
+    return FileResponse(file_path, media_type=content_type)
+
 app.include_router(api_router)
 
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
