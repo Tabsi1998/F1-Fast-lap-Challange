@@ -1,130 +1,98 @@
 # F1 Fast Lap Challenge - PRD
 
 ## Problem Statement
-Verwaltungssystem für F1 Fast Lap Challenge mit anpassbarem Titel, transparenten Einträgen, Strecken mit Bildern, Event-Status und Admin-geschütztem Export.
+Multi-Event-Verwaltungssystem für F1 Fast Lap Challenge mit anpassbarem Design, separaten Event-Seiten, QR-Codes und Admin-Export.
 
-## User Choices
-- Anpassbarer Titel mit 3 Zeilen + Farbauswahl
-- Transparente/Glaseffekt Einträge
-- Strecken mit Bild-URL
-- Export NUR für angemeldete Admins
-- First-Run Setup Formular für Admin-Erstellung
-- Mobile-optimiert
-- Saubere Seite ohne Branding/Badge
+## Core Features (Feb 2026)
+
+### ✅ Multi-Event System
+- [x] Übersichtsseite zeigt alle Events gruppiert: Live > Geplant > Beendet > Archiviert
+- [x] Jedes Event hat eigene URL: `/event/{slug}`
+- [x] Ausklappbare Top 3 Vorschau auf der Übersichtsseite
+- [x] Events können archiviert werden
+- [x] QR-Code pro Event (automatisch generiert)
+- [x] CSV Export pro Event mit Statistiken
+
+### ✅ Admin Dashboard
+- [x] Events erstellen mit Name, Strecke, Datum, Uhrzeit
+- [x] Events verwalten: Rundenzeiten hinzufügen/löschen
+- [x] Event-Status ändern (Geplant → Live → Beendet → Archiviert)
+- [x] QR-Code Dialog mit Download-Option
+- [x] URL kopieren Button
+- [x] Design anpassen (Titel, Farben, Hintergrund)
+- [x] E-Mail Einstellungen (SMTP, Templates)
+- [x] Strecken verwalten mit Bild-Upload
+
+### ✅ Bild-Upload Feedback
+- [x] Toast-Nachricht "Bild wird hochgeladen..."
+- [x] Toast-Nachricht "Bild erfolgreich hochgeladen!"
+- [x] Fehlermeldung bei Upload-Fehler
+
+### ✅ Öffentliche Event-Seite
+- [x] Rangliste mit Gold/Silber/Bronze Badges
+- [x] Fahrerzeit und Abstand zur Spitze
+- [x] Team-Anzeige
+- [x] Status-Badge (Geplant/Live/Beendet)
+- [x] Zurück-Link zur Übersicht
 
 ## Architecture
 - **Frontend**: React, TailwindCSS, Shadcn UI
 - **Backend**: FastAPI (Python), JWT Auth
 - **Database**: MongoDB
-- **Fonts**: Russo One, Barlow, JetBrains Mono
+  - `events` - Multi-Event Collection
+  - `event_lap_entries` - Rundenzeiten pro Event
+  - `tracks` - Strecken
+  - `design_settings` - Design
+  - `smtp_settings` - E-Mail
+  - `admins` - Benutzer
 
-## Core Features (Feb 2026)
-
-### Öffentliche Seite (/)
-- [x] Anpassbarer 3-Zeilen Titel mit Farben
-- [x] Status-Banner unter Überschrift
-- [x] Admin-Button im Header
-- [x] Transparente/Glaseffekt Einträge
-- [x] Strecken-Karte mit Bild
-- [x] Auto-Refresh (5 Sek.)
-- [x] Mobile-optimiert
-- [x] KEIN Export (nur für Admins)
-- [x] Dynamischer Browser Tab-Titel
-- [x] Anpassbares Favicon
-- [x] "Made with Emergent" Badge entfernt ✅
-
-### Admin Login (/admin)
-- [x] First-Run Setup Formular (wenn kein Admin existiert)
-- [x] JWT Token Authentication
-- [x] Login mit erstellten Credentials
-
-### Admin Dashboard (/admin/dashboard)
-- [x] Titel bearbeiten (3 Zeilen + Farben)
-- [x] Passwort ändern
-- [x] Event-Status setzen (mit Timer)
-- [x] Strecken mit Bild-URL
-- [x] Rundenzeiten CRUD
-- [x] CSV & PDF Export (geschützt)
-- [x] E-Mail Template Editor
-- [x] SMTP Einstellungen
-- [x] Teilnehmer-Verwaltung
-- [x] **NEU**: Website Tab im Design-Editor
-  - Browser Tab-Titel anpassbar
-  - Favicon URL anpassbar
-
-## Installation
-
-### Docker (Empfohlen) 🐳
-```bash
-chmod +x docker-install.sh && ./docker-install.sh
+## API Endpoints (Multi-Event)
 ```
-Oder: `docker compose up -d --build`
-
-**URL:** http://localhost:8080  
-**Admin:** Wird beim ersten Start erstellt
-
-### Docker Befehle
-```bash
-docker compose up -d      # Starten
-docker compose down       # Stoppen
-docker compose logs -f    # Logs
-docker compose down -v    # Alles löschen
+GET  /api/events                          - Alle Events (gruppiert)
+GET  /api/events/{slug}                   - Event Details + Einträge
+GET  /api/events/{slug}/qr                - QR-Code PNG
+POST /api/admin/events                    - Event erstellen
+PUT  /api/admin/events/{id}               - Event aktualisieren
+DELETE /api/admin/events/{id}             - Event löschen
+POST /api/admin/events/{id}/laps          - Rundenzeit hinzufügen
+PUT  /api/admin/events/{id}/laps/{lap_id} - Rundenzeit bearbeiten
+DELETE /api/admin/events/{id}/laps/{lap_id} - Rundenzeit löschen
+GET  /api/admin/events/{id}/export/csv    - CSV Export
+GET  /api/admin/events/{id}/statistics    - Statistiken
 ```
 
-### Ohne Docker (Linux/macOS)
-```bash
-chmod +x install.sh && ./install.sh
-./start.sh
-```
-URL: http://localhost:8001
-
-## Test Results (Feb 2026)
-- Backend: 100% (18 Tests bestanden)
-- Frontend: 100%
-- Mobile: 100%
-- New Features: 100%
-
-## Completed (Feb 10, 2026 - Latest Session)
-- [x] **E-Mail-Versand korrigiert**: E-Mails werden jetzt aus lap_entries geholt (nicht nur participants)
-- [x] **SMTP Test verbessert**: 
-  - Test-E-Mail-Adresse kann direkt eingegeben werden
-  - Detaillierte deutsche Fehlermeldungen
-- [x] **Upload-Buttons verifiziert**: Track-Bild-Upload, Hintergrundbild und Favicon funktionieren korrekt
-- [x] Alle Features getestet und funktionsfähig
-
-## Previously Completed
-- [x] Admin Setup Flow funktioniert (Setup-Formular bei erstem Aufruf)
-- [x] "Made with Emergent" Badge komplett entfernt
-- [x] Browser Tab-Titel anpassbar über Design-Einstellungen
-- [x] Favicon URL anpassbar über Design-Einstellungen
-- [x] Neuer "Website" Tab im Design-Editor
-- [x] **Standard-Admin**: admin / admin funktioniert IMMER
-- [x] **Passwort-Aufforderung**: Nach erstem Login wird zum Passwort-Ändern aufgefordert
-- [x] **Infinite Loop Bug behoben**: React-Funktionen mit useCallback memoized
-- [x] **Docker API Fix**: /api/api → /api korrigiert
-- [x] **File Upload System**: Bilder direkt hochladen (nicht nur URLs)
-  - Streckenbilder hochladen
-  - Hintergrundbilder hochladen
-  - Favicon hochladen
-- [x] **E-Mail bei Rundenzeit**: Optionales E-Mail-Feld beim Hinzufügen von Zeiten
-- [x] **Event-Dialog verbessert**: Status-Anzeige, Countdown-Timer, Strecken-Auswahl
-- [x] **python-multipart hinzugefügt**: Für Docker File-Uploads
+## Test Results (Feb 10, 2026)
+- Backend: 100% (35 Tests)
+- Frontend: 100% (10 Features)
+- Multi-Event System: ✅ Vollständig implementiert und getestet
 
 ## Login-Daten
 - **Benutzername**: admin
 - **Passwort**: admin
-- Nach erstem Login: Passwort-Änderung erforderlich
 
-## Next Steps (Priorität)
-- **P0**: QR-Code für schnellen Handy-Zugriff
+## Next Steps
 - **P0**: WebSocket für Echtzeit-Updates
-- **P1**: Mehrere Events/Sessions
-- **P1**: Statistiken/Diagramme
+- **P1**: Statistiken & Diagramme
 - **P2**: Fullscreen Leaderboard (Kiosk-Modus)
 
-## Technical Notes
-- Backend: FastAPI auf Port 8001
-- Frontend: React auf Port 3000
-- API Prefix: Alle Endpoints unter `/api`
-- E-Mails: Werden aus `lap_entries.email` UND `participants` Collection geholt
-- Uploads: Dateien werden im Backend unter `/app/backend/uploads/` gespeichert
+## Changelog
+
+### Feb 10, 2026 - Multi-Event System
+- ✅ Komplettes Multi-Event System implementiert
+- ✅ Event-Übersichtsseite mit gruppierter Anzeige
+- ✅ Eigene Event-URLs (/event/{slug})
+- ✅ QR-Code Generierung pro Event
+- ✅ Top 3 Vorschau ausklappbar
+- ✅ Event-Archivierung
+- ✅ Verbessertes Bild-Upload Feedback (Toast)
+- ✅ CSV Export mit E-Mail Spalte
+- ✅ 35 Backend-Tests, 10 Frontend-Features getestet
+
+### Vorherige Updates
+- Standard-Admin (admin/admin) automatisch erstellt
+- Passwort-Änderung nach erstem Login
+- Docker API Fix (/api/api → /api)
+- Infinite Loop Bug behoben
+- File Upload System
+- SMTP mit verbesserter Fehlerbehandlung
+- "Made with Emergent" Badge entfernt
