@@ -746,6 +746,8 @@ async def update_lap_entry(lap_id: str, update: LapEntryUpdate, admin = Depends(
         update_data['driver_name'] = update.driver_name
     if update.team is not None:
         update_data['team'] = update.team
+    if update.email is not None:
+        update_data['email'] = update.email if update.email else None
     if update.lap_time_display is not None:
         try:
             update_data['lap_time_ms'] = parse_lap_time(update.lap_time_display)
