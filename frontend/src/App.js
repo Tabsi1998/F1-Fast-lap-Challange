@@ -1012,10 +1012,10 @@ const EventEditor = ({ event, tracks, onSave }) => {
                         Keine Strecken vorhanden. Erstelle zuerst eine Strecke unter "Strecken".
                     </p>
                 ) : (
-                    <Select value={e.track_id} onValueChange={(v) => setE({...e, track_id: v})}>
+                    <Select value={e.track_id || "none"} onValueChange={(v) => setE({...e, track_id: v === "none" ? "" : v})}>
                         <SelectTrigger className="bg-[#0A0A0A] border-[#333]"><SelectValue placeholder="Strecke wählen..." /></SelectTrigger>
                         <SelectContent className="bg-[#1A1A1A] border-[#333]">
-                            <SelectItem value="">Keine Strecke</SelectItem>
+                            <SelectItem value="none">Keine Strecke</SelectItem>
                             {tracks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}, {t.country}</SelectItem>)}
                         </SelectContent>
                     </Select>
