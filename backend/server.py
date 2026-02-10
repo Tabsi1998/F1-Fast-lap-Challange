@@ -1142,6 +1142,9 @@ async def add_event_lap(event_id: str, entry: EventLapEntryCreate, admin = Depen
     
     await db.event_lap_entries.insert_one(doc)
     
+    # Remove _id for response
+    doc.pop('_id', None)
+    
     return {"message": "Rundenzeit hinzugefügt", "entry": doc}
 
 @api_router.put("/admin/events/{event_id}/laps/{lap_id}")
