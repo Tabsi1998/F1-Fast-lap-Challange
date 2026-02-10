@@ -28,8 +28,11 @@ import {
     Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 
+// Für Docker: BACKEND_URL leer lassen (API calls gehen über nginx proxy)
+// Für Entwicklung: REACT_APP_BACKEND_URL setzen (z.B. http://localhost:8001)
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
-const API = `${BACKEND_URL}/api`;
+// Wenn BACKEND_URL bereits /api enthält, nicht nochmal hinzufügen
+const API = BACKEND_URL.endsWith('/api') ? BACKEND_URL : `${BACKEND_URL}/api`;
 
 // Auth Hook
 const useAuth = () => {
