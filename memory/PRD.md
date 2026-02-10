@@ -79,12 +79,20 @@ chmod +x install.sh && ./install.sh
 URL: http://localhost:8001
 
 ## Test Results (Feb 2026)
-- Backend: 100%
+- Backend: 100% (18 Tests bestanden)
 - Frontend: 100%
 - Mobile: 100%
-- New Features: 100% (Admin Setup, Website Tab, Badge Removed)
+- New Features: 100%
 
-## Completed in This Session
+## Completed (Feb 10, 2026 - Latest Session)
+- [x] **E-Mail-Versand korrigiert**: E-Mails werden jetzt aus lap_entries geholt (nicht nur participants)
+- [x] **SMTP Test verbessert**: 
+  - Test-E-Mail-Adresse kann direkt eingegeben werden
+  - Detaillierte deutsche Fehlermeldungen
+- [x] **Upload-Buttons verifiziert**: Track-Bild-Upload, Hintergrundbild und Favicon funktionieren korrekt
+- [x] Alle Features getestet und funktionsfähig
+
+## Previously Completed
 - [x] Admin Setup Flow funktioniert (Setup-Formular bei erstem Aufruf)
 - [x] "Made with Emergent" Badge komplett entfernt
 - [x] Browser Tab-Titel anpassbar über Design-Einstellungen
