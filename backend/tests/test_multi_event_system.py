@@ -225,11 +225,13 @@ class TestEventLapEntries:
         assert response.status_code == 200
         data = response.json()
         
-        assert data["driver_name"] == "TEST_Driver"
-        assert data["lap_time_display"] == "1:25.123"
-        assert data["lap_time_ms"] == 85123  # 1:25.123 in ms
+        # Response wraps entry in "entry" field
+        entry = data.get("entry", data)
+        assert entry["driver_name"] == "TEST_Driver"
+        assert entry["lap_time_display"] == "1:25.123"
+        assert entry["lap_time_ms"] == 85123  # 1:25.123 in ms
         
-        print(f"✅ Lap entry added to event - id: {data['id']}")
+        print(f"✅ Lap entry added to event - id: {entry['id']}")
     
     def test_add_lap_entry_with_email(self, auth_token, test_event):
         """Test adding a lap entry with optional email"""
@@ -245,7 +247,9 @@ class TestEventLapEntries:
         assert response.status_code == 200
         data = response.json()
         
-        assert data["email"] == "test@example.com"
+        # Response wraps entry in "entry" field
+        entry = data.get("entry", data)
+        assert entry["email"] == "test@example.com"
         print(f"✅ Lap entry with email added")
     
     def test_delete_lap_entry_from_event(self, auth_token, test_event):
@@ -255,7 +259,10 @@ class TestEventLapEntries:
             json={"driver_name": "TEST_ToDelete", "lap_time_display": "1:30.000"},
             headers={"Authorization": f"Bearer {auth_token}"}
         )
-        entry_id = add_response.json()["id"]
+        add_data = add_response.json()
+        # Response wraps entry in "entry" field
+        entry = add_data.get("entry", add_data)
+        entry_id = entry["id"]
         
         # Delete
         response = requests.delete(f"{BASE_URL}/api/admin/events/{test_event['id']}/laps/{entry_id}", 
