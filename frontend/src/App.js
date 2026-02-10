@@ -682,25 +682,73 @@ const AdminDashboard = () => {
             {/* Tracks Dialog */}
             <Dialog open={activeDialog === 'tracks'} onOpenChange={(open) => !open && setActiveDialog(null)}>
                 <DialogContent className="bg-[#1A1A1A] border-[#333]">
-                    <DialogHeader><DialogTitle><MapPin size={18} className="inline mr-2" />Strecken</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle><MapPin size={18} className="inline mr-2" />Strecken verwalten</DialogTitle></DialogHeader>
                     <div className="space-y-4">
-                        <div className="grid grid-cols-3 gap-2">
-                            <Input value={newTrackName} onChange={(e) => setNewTrackName(e.target.value)} placeholder="Name" className="bg-[#0A0A0A] border-[#333]" />
-                            <Input value={newTrackCountry} onChange={(e) => setNewTrackCountry(e.target.value)} placeholder="Land" className="bg-[#0A0A0A] border-[#333]" />
-                            <Input value={newTrackImage} onChange={(e) => setNewTrackImage(e.target.value)} placeholder="Bild-URL" className="bg-[#0A0A0A] border-[#333]" />
+                        <div className="grid grid-cols-2 gap-2">
+                            <Input value={newTrackName} onChange={(e) => setNewTrackName(e.target.value)} placeholder="Streckenname *" className="bg-[#0A0A0A] border-[#333]" />
+                            <Input value={newTrackCountry} onChange={(e) => setNewTrackCountry(e.target.value)} placeholder="Land *" className="bg-[#0A0A0A] border-[#333]" />
                         </div>
-                        <Button onClick={handleAddTrack} className="w-full bg-[#FF1E1E]"><Plus size={14} className="mr-1" /> Hinzufügen</Button>
-                        <div className="space-y-2 max-h-60 overflow-auto">
-                            {tracks.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-2 bg-[#0A0A0A] rounded border border-[#333]">
-                                    <div className="flex items-center gap-2">
-                                        {t.image_url && <img src={t.image_url} alt="" className="w-10 h-6 object-cover rounded" />}
-                                        <span>{t.name}, {t.country}</span>
-                                    </div>
-                                    <button onClick={() => handleDeleteTrack(t.id)} className="text-[#A0A0A0] hover:text-[#FF1E1E]"><X size={14} /></button>
+                        <div className="space-y-2">
+                            <Label className="text-[#A0A0A0] text-xs">Streckenbild</Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    value={newTrackImage} 
+                                    onChange={(e) => setNewTrackImage(e.target.value)} 
+                                    placeholder="Bild-URL oder hochladen →" 
+                                    className="bg-[#0A0A0A] border-[#333] flex-1" 
+                                />
+                                <label className="cursor-pointer">
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const url = await handleUploadImage(file);
+                                                if (url) setNewTrackImage(url);
+                                            }
+                                        }}
+                                    />
+                                    <Button type="button" variant="outline" className="border-[#333]" disabled={uploadingImage}>
+                                        {uploadingImage ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                                    </Button>
+                                </label>
+                            </div>
+                            {newTrackImage && (
+                                <div className="relative w-full h-24 rounded overflow-hidden border border-[#333]">
+                                    <img src={newTrackImage.startsWith('/api') ? newTrackImage : newTrackImage} alt="Vorschau" className="w-full h-full object-cover" />
+                                    <button onClick={() => setNewTrackImage("")} className="absolute top-1 right-1 p-1 bg-black/50 rounded"><X size={12} /></button>
                                 </div>
-                            ))}
+                            )}
                         </div>
+                        <Button onClick={handleAddTrack} className="w-full bg-[#FF1E1E]" disabled={!newTrackName.trim() || !newTrackCountry.trim()}>
+                            <Plus size={14} className="mr-1" /> Strecke hinzufügen
+                        </Button>
+                        
+                        {tracks.length > 0 && (
+                            <div className="border-t border-[#333] pt-4">
+                                <Label className="text-[#A0A0A0] text-xs mb-2 block">Vorhandene Strecken</Label>
+                                <div className="space-y-2 max-h-48 overflow-auto">
+                                    {tracks.map(t => (
+                                        <div key={t.id} className="flex items-center justify-between p-2 bg-[#0A0A0A] rounded border border-[#333]">
+                                            <div className="flex items-center gap-3">
+                                                {t.image_url ? (
+                                                    <img src={t.image_url} alt="" className="w-12 h-8 object-cover rounded" />
+                                                ) : (
+                                                    <div className="w-12 h-8 bg-[#333] rounded flex items-center justify-center"><Image size={14} className="text-[#666]" /></div>
+                                                )}
+                                                <div>
+                                                    <div className="font-medium">{t.name}</div>
+                                                    <div className="text-xs text-[#A0A0A0]">{t.country}</div>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => handleDeleteTrack(t.id)} className="text-[#A0A0A0] hover:text-[#FF1E1E] p-1"><Trash2 size={14} /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </DialogContent>
             </Dialog>
