@@ -974,28 +974,52 @@ const EventEditor = ({ event, tracks, onSave }) => {
         timer_duration_minutes: event.timer_duration_minutes || 60
     });
     
+    const statusColors = {
+        inactive: '#525252',
+        scheduled: '#FFA500',
+        active: '#00FF00',
+        finished: '#FF1E1E'
+    };
+    
     return (
         <div className="space-y-4 mt-4">
-            <div><Label className="text-[#A0A0A0] text-xs">Status</Label>
+            {/* Current Status Info */}
+            <div className="p-3 rounded bg-[#0A0A0A] border border-[#333] flex items-center justify-between">
+                <span className="text-[#A0A0A0]">Aktueller Status:</span>
+                <span className="font-bold" style={{ color: statusColors[e.status] }}>
+                    {e.status === 'inactive' && '⚫ Kein Rennen'}
+                    {e.status === 'scheduled' && '🟡 Geplant'}
+                    {e.status === 'active' && '🟢 Läuft'}
+                    {e.status === 'finished' && '🔴 Abgeschlossen'}
+                </span>
+            </div>
+            
+            <div><Label className="text-[#A0A0A0] text-xs">Status ändern</Label>
                 <Select value={e.status} onValueChange={(v) => setE({...e, status: v})}>
                     <SelectTrigger className="bg-[#0A0A0A] border-[#333]"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-[#1A1A1A] border-[#333]">
-                        <SelectItem value="inactive">Kein Rennen</SelectItem>
-                        <SelectItem value="scheduled">Geplant</SelectItem>
-                        <SelectItem value="active">Läuft</SelectItem>
-                        <SelectItem value="finished">Abgeschlossen</SelectItem>
+                        <SelectItem value="inactive">⚫ Kein Rennen</SelectItem>
+                        <SelectItem value="scheduled">🟡 Geplant</SelectItem>
+                        <SelectItem value="active">🟢 Läuft</SelectItem>
+                        <SelectItem value="finished">🔴 Abgeschlossen</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
             
-            <div><Label className="text-[#A0A0A0] text-xs">Strecke</Label>
-                <Select value={e.track_id} onValueChange={(v) => setE({...e, track_id: v})}>
-                    <SelectTrigger className="bg-[#0A0A0A] border-[#333]"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                    <SelectContent className="bg-[#1A1A1A] border-[#333]">
-                        <SelectItem value="">Keine</SelectItem>
-                        {tracks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+            <div><Label className="text-[#A0A0A0] text-xs">Strecke auswählen</Label>
+                {tracks.length === 0 ? (
+                    <p className="text-sm text-[#666] italic p-2 bg-[#0A0A0A] rounded border border-[#333]">
+                        Keine Strecken vorhanden. Erstelle zuerst eine Strecke unter "Strecken".
+                    </p>
+                ) : (
+                    <Select value={e.track_id} onValueChange={(v) => setE({...e, track_id: v})}>
+                        <SelectTrigger className="bg-[#0A0A0A] border-[#333]"><SelectValue placeholder="Strecke wählen..." /></SelectTrigger>
+                        <SelectContent className="bg-[#1A1A1A] border-[#333]">
+                            <SelectItem value="">Keine Strecke</SelectItem>
+                            {tracks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}, {t.country}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                )}
             </div>
             
             {e.status === 'scheduled' && (
@@ -1007,16 +1031,26 @@ const EventEditor = ({ event, tracks, onSave }) => {
                 </div>
             )}
             
-            <div className="p-3 bg-[#0A0A0A] rounded border border-[#333]">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2"><Clock size={16} className="text-[#A0A0A0]" /><span>Timer aktivieren</span></div>
-                    <Switch checked={e.timer_enabled} onCheckedChange={(v) => setE({...e, timer_enabled: v})} />
+            {e.status === 'active' && (
+                <div className="p-3 bg-[#0A0A0A] rounded border border-[#333]">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2"><Clock size={16} className="text-[#A0A0A0]" /><span>Countdown-Timer</span></div>
+                        <Switch checked={e.timer_enabled} onCheckedChange={(v) => setE({...e, timer_enabled: v})} />
+                    </div>
+                    {e.timer_enabled && (
+                        <div className="mt-3"><Label className="text-[#A0A0A0] text-xs">Dauer (Minuten)</Label>
+                            <Input type="number" value={e.timer_duration_minutes} onChange={(ev) => setE({...e, timer_duration_minutes: parseInt(ev.target.value) || 60})} min={1} max={999} className="bg-[#1A1A1A] border-[#333]" /></div>
+                    )}
+                    <p className="text-xs text-[#666] mt-2">Timer startet wenn du auf Speichern klickst</p>
                 </div>
-                {e.timer_enabled && (
-                    <div className="mt-3"><Label className="text-[#A0A0A0] text-xs">Dauer (Minuten)</Label>
-                        <Input type="number" value={e.timer_duration_minutes} onChange={(ev) => setE({...e, timer_duration_minutes: parseInt(ev.target.value) || 60})} className="bg-[#1A1A1A] border-[#333]" /></div>
-                )}
-            </div>
+            )}
+            
+            {e.status === 'finished' && (
+                <div className="p-3 bg-[#0A0A0A] rounded border border-[#FF1E1E]/30 text-sm">
+                    <p className="text-[#FF1E1E]">⚠️ Wenn "Abgeschlossen" gespeichert wird:</p>
+                    <p className="text-[#A0A0A0] mt-1">E-Mails werden automatisch an alle Teilnehmer gesendet (falls aktiviert)</p>
+                </div>
+            )}
             
             <Button onClick={() => onSave(e)} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
         </div>
