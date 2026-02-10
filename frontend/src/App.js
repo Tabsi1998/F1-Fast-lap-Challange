@@ -844,9 +844,10 @@ const AdminDashboard = () => {
                     <DialogHeader><DialogTitle>Eintrag bearbeiten</DialogTitle></DialogHeader>
                     {editEntry && (
                         <div className="space-y-4">
-                            <Input value={editEntry.driver_name} onChange={(e) => setEditEntry({...editEntry, driver_name: e.target.value})} className="bg-[#0A0A0A] border-[#333]" />
-                            <Input value={editEntry.team || ''} onChange={(e) => setEditEntry({...editEntry, team: e.target.value})} placeholder="Team" className="bg-[#0A0A0A] border-[#333]" />
-                            <Input value={editEntry.lap_time_display} onChange={(e) => setEditEntry({...editEntry, lap_time_display: e.target.value})} className="bg-[#0A0A0A] border-[#333] font-mono" />
+                            <Input value={editEntry.driver_name} onChange={(e) => setEditEntry({...editEntry, driver_name: e.target.value})} placeholder="Fahrername" className="bg-[#0A0A0A] border-[#333]" />
+                            <Input value={editEntry.team || ''} onChange={(e) => setEditEntry({...editEntry, team: e.target.value})} placeholder="Team (optional)" className="bg-[#0A0A0A] border-[#333]" />
+                            <Input value={editEntry.lap_time_display} onChange={(e) => setEditEntry({...editEntry, lap_time_display: e.target.value})} placeholder="1:23.456" className="bg-[#0A0A0A] border-[#333] font-mono" />
+                            <Input value={editEntry.email || ''} onChange={(e) => setEditEntry({...editEntry, email: e.target.value})} placeholder="E-Mail (optional)" className="bg-[#0A0A0A] border-[#333]" />
                             <Button onClick={handleUpdateEntry} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
                         </div>
                     )}
@@ -857,14 +858,59 @@ const AdminDashboard = () => {
 };
 
 // Design Editor Component
-const DesignEditor = ({ design, onSave, onClose }) => {
+const DesignEditor = ({ design, onSave, onClose, onUpload }) => {
     const [d, setD] = useState(design);
+    const [uploading, setUploading] = useState(false);
+    
+    const handleUpload = async (file, field) => {
+        if (!file || !onUpload) return;
+        setUploading(true);
+        const url = await onUpload(file);
+        if (url) setD({...d, [field]: url});
+        setUploading(false);
+    };
     
     const ColorInput = ({ label, value, onChange }) => (
         <div className="flex items-center gap-2">
             <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0" />
             <span className="text-sm text-[#A0A0A0] flex-1">{label}</span>
             <Input value={value} onChange={(e) => onChange(e.target.value)} className="w-24 bg-[#0A0A0A] border-[#333] text-xs font-mono" />
+        </div>
+    );
+    
+    const ImageUploadField = ({ label, value, field, description }) => (
+        <div className="space-y-2">
+            <Label className="text-[#A0A0A0] text-xs">{label}</Label>
+            <div className="flex gap-2">
+                <Input 
+                    value={value || ''} 
+                    onChange={(e) => setD({...d, [field]: e.target.value})} 
+                    placeholder="URL oder hochladen →" 
+                    className="bg-[#0A0A0A] border-[#333] flex-1" 
+                />
+                <label className="cursor-pointer">
+                    <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden"
+                        onChange={(e) => handleUpload(e.target.files?.[0], field)}
+                    />
+                    <Button type="button" variant="outline" className="border-[#333]" disabled={uploading}>
+                        {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                    </Button>
+                </label>
+                {value && (
+                    <Button type="button" variant="outline" size="icon" className="border-[#333] text-[#FF1E1E]" onClick={() => setD({...d, [field]: ''})}>
+                        <X size={14} />
+                    </Button>
+                )}
+            </div>
+            {description && <p className="text-xs text-[#666]">{description}</p>}
+            {value && (
+                <div className="relative w-full h-20 rounded overflow-hidden border border-[#333]">
+                    <img src={value} alt="Vorschau" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+                </div>
+            )}
         </div>
     );
     
