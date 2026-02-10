@@ -700,7 +700,34 @@ const AdminDashboard = () => {
                         <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Aktuelles Passwort" className="bg-[#0A0A0A] border-[#333]" />
                         <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Neues Passwort" className="bg-[#0A0A0A] border-[#333]" />
                         <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Bestätigen" className="bg-[#0A0A0A] border-[#333]" />
-                        <Button onClick={handleChangePassword} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Ändern</Button>
+                        <Button onClick={() => handleChangePassword(false)} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Ändern</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Force Password Change Dialog (First Login) */}
+            <Dialog open={activeDialog === 'forcePassword'} onOpenChange={() => {}}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333]" onPointerDownOutside={(e) => e.preventDefault()}>
+                    <DialogHeader>
+                        <DialogTitle className="text-[#FF1E1E]"><Key size={18} className="inline mr-2" />Passwort ändern erforderlich!</DialogTitle>
+                        <DialogDescription>
+                            Bitte ändern Sie das Standard-Passwort für mehr Sicherheit.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label className="text-[#A0A0A0] text-xs">Aktuelles Passwort (Standard: admin)</Label>
+                            <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="admin" className="bg-[#0A0A0A] border-[#333]" />
+                        </div>
+                        <div>
+                            <Label className="text-[#A0A0A0] text-xs">Neues Passwort</Label>
+                            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Mindestens 4 Zeichen" className="bg-[#0A0A0A] border-[#333]" />
+                        </div>
+                        <div>
+                            <Label className="text-[#A0A0A0] text-xs">Passwort bestätigen</Label>
+                            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Wiederholen" className="bg-[#0A0A0A] border-[#333]" />
+                        </div>
+                        <Button onClick={() => handleChangePassword(true)} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Passwort ändern</Button>
                     </div>
                 </DialogContent>
             </Dialog>
