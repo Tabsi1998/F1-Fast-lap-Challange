@@ -567,7 +567,10 @@ async def change_password(data: PasswordChange, admin = Depends(get_current_admi
         raise HTTPException(status_code=400, detail="Aktuelles Passwort falsch")
     
     new_hash = bcrypt.hashpw(data.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    await db.admins.update_one({"username": admin['username']}, {"$set": {"password_hash": new_hash}})
+    await db.admins.update_one(
+        {"username": admin['username']}, 
+        {"$set": {"password_hash": new_hash, "must_change_password": False}}
+    )
     return {"message": "Passwort geändert"}
 
 @api_router.put("/admin/profile")
