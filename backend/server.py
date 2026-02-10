@@ -252,6 +252,7 @@ class LapEntryCreate(BaseModel):
 class LapEntryUpdate(BaseModel):
     driver_name: Optional[str] = None
     team: Optional[str] = None
+    email: Optional[str] = None
     lap_time_display: Optional[str] = None
 
 class LapEntryResponse(BaseModel):
