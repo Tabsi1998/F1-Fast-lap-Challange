@@ -723,7 +723,7 @@ async def create_lap_entry(entry: LapEntryCreate, admin = Depends(get_current_ad
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-    lap_entry = LapEntry(driver_name=entry.driver_name, team=entry.team, lap_time_ms=lap_time_ms, lap_time_display=entry.lap_time_display)
+    lap_entry = LapEntry(driver_name=entry.driver_name, team=entry.team, email=entry.email, lap_time_ms=lap_time_ms, lap_time_display=entry.lap_time_display)
     doc = lap_entry.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     await db.lap_entries.insert_one(doc)
@@ -732,7 +732,8 @@ async def create_lap_entry(entry: LapEntryCreate, admin = Depends(get_current_ad
     rank = next((i + 1 for i, e in enumerate(entries) if e['id'] == lap_entry.id), 0)
     
     return LapEntryResponse(id=lap_entry.id, driver_name=lap_entry.driver_name, team=lap_entry.team,
-        lap_time_ms=lap_entry.lap_time_ms, lap_time_display=lap_entry.lap_time_display, created_at=doc['created_at'], rank=rank, gap="")
+        email=lap_entry.email, lap_time_ms=lap_entry.lap_time_ms, lap_time_display=lap_entry.lap_time_display, 
+        created_at=doc['created_at'], rank=rank, gap="")
 
 @api_router.put("/admin/laps/{lap_id}")
 async def update_lap_entry(lap_id: str, update: LapEntryUpdate, admin = Depends(get_current_admin)):
