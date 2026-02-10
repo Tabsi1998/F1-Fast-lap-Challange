@@ -260,6 +260,7 @@ class LapEntryResponse(BaseModel):
     id: str
     driver_name: str
     team: Optional[str]
+    email: Optional[str] = None
     lap_time_ms: int
     lap_time_display: str
     created_at: str
