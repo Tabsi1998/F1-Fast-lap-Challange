@@ -515,7 +515,8 @@ async def get_all_laps():
     for idx, entry in enumerate(entries):
         result.append(LapEntryResponse(
             id=entry['id'], driver_name=entry['driver_name'], team=entry.get('team'),
-            lap_time_ms=entry['lap_time_ms'], lap_time_display=entry['lap_time_display'],
+            email=entry.get('email'), lap_time_ms=entry['lap_time_ms'], 
+            lap_time_display=entry['lap_time_display'],
             created_at=entry['created_at'], rank=idx + 1, gap=format_gap(leader_time, entry['lap_time_ms'])
         ))
     return result
