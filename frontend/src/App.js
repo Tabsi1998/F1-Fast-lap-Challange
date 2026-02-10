@@ -364,32 +364,38 @@ const AdminDashboard = () => {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [emailPreview, setEmailPreview] = useState(null);
-
+    
+    // Einmaliger Auth-Check beim Mount
+    const authCheckedRef = useRef(false);
     useEffect(() => {
         if (!isAuthenticated) { navigate('/admin'); return; }
-        axios.get(`${API}/auth/check`, { headers: getAuthHeader() })
+        if (authCheckedRef.current) return;
+        authCheckedRef.current = true;
+        
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        axios.get(`${API}/auth/check`, { headers })
             .then(res => {
                 setAdminProfile(res.data);
-                // Öffne Passwort-Dialog wenn Änderung erforderlich
-                if (res.data.must_change_password || mustChangePassword) {
+                if (res.data.must_change_password) {
                     setActiveDialog('forcePassword');
                     toast.info("Bitte ändern Sie Ihr Standard-Passwort!");
                 }
             })
             .catch(() => { logout(); navigate('/admin'); });
-    }, [isAuthenticated, navigate, getAuthHeader, logout, mustChangePassword]);
+    }, [isAuthenticated, navigate, logout, token]);
 
     const fetchData = useCallback(async () => {
         if (!token) return;
+        const headers = { Authorization: `Bearer ${token}` };
         try {
             const [entriesRes, tracksRes, statusRes, designRes, participantsRes, templateRes, smtpRes] = await Promise.all([
                 axios.get(`${API}/laps`),
                 axios.get(`${API}/tracks`),
                 axios.get(`${API}/event/status`),
                 axios.get(`${API}/design`),
-                axios.get(`${API}/admin/participants`, { headers: getAuthHeader() }).catch(() => ({ data: [] })),
-                axios.get(`${API}/admin/email-template`, { headers: getAuthHeader() }).catch(() => ({ data: null })),
-                axios.get(`${API}/admin/smtp`, { headers: getAuthHeader() }).catch(() => ({ data: null }))
+                axios.get(`${API}/admin/participants`, { headers }).catch(() => ({ data: [] })),
+                axios.get(`${API}/admin/email-template`, { headers }).catch(() => ({ data: null })),
+                axios.get(`${API}/admin/smtp`, { headers }).catch(() => ({ data: null }))
             ]);
             setEntries(entriesRes.data);
             setTracks(tracksRes.data);
@@ -403,9 +409,15 @@ const AdminDashboard = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [token, getAuthHeader]);
+    }, [token]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    // Einmaliges Fetchen beim Mount
+    const dataFetchedRef = useRef(false);
+    useEffect(() => { 
+        if (dataFetchedRef.current) return;
+        dataFetchedRef.current = true;
+        fetchData(); 
+    }, [fetchData]);
 
     // Handlers
     const handleAddEntry = async (e) => {
