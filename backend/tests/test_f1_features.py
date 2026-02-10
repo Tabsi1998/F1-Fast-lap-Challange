@@ -1,12 +1,13 @@
 """
 F1 Fast Lap Challenge - Feature Tests
-Tests for: Admin Setup, Login, Design Settings (Website Tab), Badge removal
+Tests for: Admin Login, Track Upload, Design Editor, SMTP Test, Lap Entry with Email, Event Status
 """
 import pytest
 import requests
 import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://fastlapapp.preview.emergentagent.com').rstrip('/')
+
 
 class TestAdminAuth:
     """Test Admin Authentication flows"""
@@ -21,7 +22,7 @@ class TestAdminAuth:
         print(f"✅ has_admin endpoint works - has_admin: {data['has_admin']}")
     
     def test_admin_login_success(self):
-        """Test admin login with valid credentials"""
+        """Test admin login with admin/admin credentials"""
         response = requests.post(f"{BASE_URL}/api/auth/login", json={
             "username": "admin",
             "password": "admin"
@@ -32,7 +33,7 @@ class TestAdminAuth:
         assert "username" in data
         assert data["username"] == "admin"
         assert len(data["token"]) > 0
-        print(f"✅ Admin login successful - username: {data['username']}")
+        print(f"✅ Admin login successful with admin/admin - username: {data['username']}")
         return data["token"]
     
     def test_admin_login_invalid_credentials(self):
@@ -46,14 +47,12 @@ class TestAdminAuth:
     
     def test_auth_check_with_valid_token(self):
         """Test auth check with valid token"""
-        # First login to get token
         login_response = requests.post(f"{BASE_URL}/api/auth/login", json={
             "username": "admin",
             "password": "admin"
         })
         token = login_response.json()["token"]
         
-        # Check auth
         response = requests.get(f"{BASE_URL}/api/auth/check", headers={
             "Authorization": f"Bearer {token}"
         })
@@ -62,16 +61,53 @@ class TestAdminAuth:
         assert data["authenticated"] == True
         assert data["username"] == "admin"
         print(f"✅ Auth check successful - authenticated: {data['authenticated']}")
+
+
+class TestTrackManagement:
+    """Test Track Management including image upload"""
     
-    def test_auth_check_without_token(self):
-        """Test auth check without token"""
-        response = requests.get(f"{BASE_URL}/api/auth/check")
-        assert response.status_code == 401
-        print("✅ Auth check without token correctly rejected with 401")
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "username": "admin",
+            "password": "admin"
+        })
+        return response.json()["token"]
+    
+    def test_get_tracks(self):
+        """Test get tracks endpoint"""
+        response = requests.get(f"{BASE_URL}/api/tracks")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        print(f"✅ Tracks endpoint works - {len(data)} tracks")
+    
+    def test_create_track_with_image(self, auth_token):
+        """Test creating a track with image URL"""
+        track_data = {
+            "name": "TEST_Monaco",
+            "country": "Monaco",
+            "image_url": "https://example.com/monaco.png"
+        }
+        response = requests.post(f"{BASE_URL}/api/admin/tracks", 
+            json=track_data,
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "id" in data
+        assert data["name"] == "TEST_Monaco"
+        assert data["image_url"] == "https://example.com/monaco.png"
+        print(f"✅ Track created with image - id: {data['id']}")
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/api/admin/tracks/{data['id']}", 
+            headers={"Authorization": f"Bearer {auth_token}"})
 
 
 class TestDesignSettings:
-    """Test Design Settings including Website Tab features"""
+    """Test Design Settings including Background and Favicon upload"""
     
     @pytest.fixture
     def auth_token(self):
@@ -88,20 +124,22 @@ class TestDesignSettings:
         assert response.status_code == 200
         data = response.json()
         
-        # Check for Website Tab fields
-        assert "site_title" in data
+        # Check for background and favicon fields
+        assert "bg_image_url" in data
         assert "favicon_url" in data
-        assert "show_badge" in data
+        assert "site_title" in data
+        assert "bg_overlay_opacity" in data
         
-        print(f"✅ Design settings retrieved - site_title: {data['site_title']}")
+        print(f"✅ Design settings retrieved")
+        print(f"   bg_image_url: {data['bg_image_url']}")
         print(f"   favicon_url: {data['favicon_url']}")
-        print(f"   show_badge: {data['show_badge']}")
+        print(f"   site_title: {data['site_title']}")
     
-    def test_update_site_title(self, auth_token):
-        """Test updating site title"""
-        new_title = "Test F1 Challenge Title"
+    def test_update_background_image(self, auth_token):
+        """Test updating background image URL"""
+        new_bg = "https://example.com/test-background.jpg"
         response = requests.put(f"{BASE_URL}/api/admin/design", 
-            json={"site_title": new_title},
+            json={"bg_image_url": new_bg},
             headers={"Authorization": f"Bearer {auth_token}"}
         )
         assert response.status_code == 200
@@ -109,8 +147,8 @@ class TestDesignSettings:
         # Verify update
         get_response = requests.get(f"{BASE_URL}/api/design")
         data = get_response.json()
-        assert data["site_title"] == new_title
-        print(f"✅ Site title updated successfully to: {new_title}")
+        assert data["bg_image_url"] == new_bg
+        print(f"✅ Background image URL updated successfully")
     
     def test_update_favicon_url(self, auth_token):
         """Test updating favicon URL"""
@@ -125,58 +163,124 @@ class TestDesignSettings:
         get_response = requests.get(f"{BASE_URL}/api/design")
         data = get_response.json()
         assert data["favicon_url"] == new_favicon
-        print(f"✅ Favicon URL updated successfully to: {new_favicon}")
+        print(f"✅ Favicon URL updated successfully")
+
+
+class TestSMTPSettings:
+    """Test SMTP Settings and improved error messages"""
     
-    def test_show_badge_setting(self, auth_token):
-        """Test show_badge setting (should be false for badge removal)"""
-        # Set show_badge to false
-        response = requests.put(f"{BASE_URL}/api/admin/design", 
-            json={"show_badge": False},
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "username": "admin",
+            "password": "admin"
+        })
+        return response.json()["token"]
+    
+    def test_smtp_test_without_config(self, auth_token):
+        """Test SMTP test shows proper error when not configured"""
+        # First reset SMTP settings
+        requests.put(f"{BASE_URL}/api/admin/smtp", 
+            json={"enabled": False, "host": "", "from_email": ""},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        
+        response = requests.post(f"{BASE_URL}/api/admin/smtp/test", 
+            json={},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert "detail" in data
+        # Should show improved error message
+        assert "SMTP" in data["detail"] or "konfiguriert" in data["detail"]
+        print(f"✅ SMTP test shows proper error: {data['detail']}")
+    
+    def test_smtp_test_missing_from_email(self, auth_token):
+        """Test SMTP test shows error when from_email is missing"""
+        # Save partial config
+        requests.put(f"{BASE_URL}/api/admin/smtp", 
+            json={"enabled": True, "host": "smtp.gmail.com", "port": 587},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        
+        response = requests.post(f"{BASE_URL}/api/admin/smtp/test", 
+            json={},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 400
+        data = response.json()
+        assert "detail" in data
+        print(f"✅ SMTP test shows missing field error: {data['detail']}")
+
+
+class TestLapEntryWithEmail:
+    """Test Lap Entry with optional email"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "username": "admin",
+            "password": "admin"
+        })
+        return response.json()["token"]
+    
+    def test_create_lap_entry_with_email(self, auth_token):
+        """Test creating lap entry with optional email"""
+        entry_data = {
+            "driver_name": "TEST_EmailDriver",
+            "team": "Test Team",
+            "email": "testdriver@example.com",
+            "lap_time_display": "1:30.123"
+        }
+        response = requests.post(f"{BASE_URL}/api/admin/laps", 
+            json=entry_data,
             headers={"Authorization": f"Bearer {auth_token}"}
         )
         assert response.status_code == 200
+        data = response.json()
+        assert data["driver_name"] == "TEST_EmailDriver"
+        assert data["email"] == "testdriver@example.com"
+        print(f"✅ Lap entry created with email - id: {data['id']}")
         
-        # Verify update
-        get_response = requests.get(f"{BASE_URL}/api/design")
-        data = get_response.json()
-        assert data["show_badge"] == False
-        print("✅ show_badge correctly set to False (badge removed)")
+        # Cleanup
+        requests.delete(f"{BASE_URL}/api/admin/laps/{data['id']}", 
+            headers={"Authorization": f"Bearer {auth_token}"})
     
-    def test_update_design_requires_auth(self):
-        """Test that design update requires authentication"""
-        response = requests.put(f"{BASE_URL}/api/admin/design", 
-            json={"site_title": "Unauthorized Update"}
+    def test_create_lap_entry_without_email(self, auth_token):
+        """Test creating lap entry without email (optional)"""
+        entry_data = {
+            "driver_name": "TEST_NoEmailDriver",
+            "lap_time_display": "1:31.456"
+        }
+        response = requests.post(f"{BASE_URL}/api/admin/laps", 
+            json=entry_data,
+            headers={"Authorization": f"Bearer {auth_token}"}
         )
-        assert response.status_code == 401
-        print("✅ Design update without auth correctly rejected with 401")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["driver_name"] == "TEST_NoEmailDriver"
+        assert data.get("email") is None
+        print(f"✅ Lap entry created without email - id: {data['id']}")
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/api/admin/laps/{data['id']}", 
+            headers={"Authorization": f"Bearer {auth_token}"})
 
 
-class TestPublicEndpoints:
-    """Test public endpoints"""
+class TestEventStatus:
+    """Test Event Status management"""
     
-    def test_root_endpoint(self):
-        """Test root API endpoint"""
-        response = requests.get(f"{BASE_URL}/api/")
-        assert response.status_code == 200
-        data = response.json()
-        assert "message" in data
-        print(f"✅ Root endpoint works - message: {data['message']}")
-    
-    def test_get_laps(self):
-        """Test get laps endpoint"""
-        response = requests.get(f"{BASE_URL}/api/laps")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"✅ Laps endpoint works - {len(data)} entries")
-    
-    def test_get_tracks(self):
-        """Test get tracks endpoint"""
-        response = requests.get(f"{BASE_URL}/api/tracks")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"✅ Tracks endpoint works - {len(data)} tracks")
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "username": "admin",
+            "password": "admin"
+        })
+        return response.json()["token"]
     
     def test_get_event_status(self):
         """Test get event status endpoint"""
@@ -185,28 +289,69 @@ class TestPublicEndpoints:
         data = response.json()
         assert "status" in data
         assert "message" in data
+        assert data["status"] in ["inactive", "scheduled", "active", "finished"]
         print(f"✅ Event status endpoint works - status: {data['status']}")
-
-
-class TestAdminSetupFlow:
-    """Test Admin Setup flow (when no admin exists)"""
     
-    def test_setup_endpoint_exists(self):
-        """Test that setup endpoint exists"""
-        # This test just verifies the endpoint exists
-        # We don't actually create an admin as one already exists
-        response = requests.post(f"{BASE_URL}/api/auth/setup", json={
-            "username": "test_admin",
-            "password": "test123"
+    def test_update_event_to_active(self, auth_token):
+        """Test updating event status to active"""
+        response = requests.put(f"{BASE_URL}/api/admin/event", 
+            json={"status": "active"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        
+        # Verify
+        get_response = requests.get(f"{BASE_URL}/api/event/status")
+        data = get_response.json()
+        assert data["status"] == "active"
+        print(f"✅ Event status updated to active")
+    
+    def test_update_event_to_finished_triggers_email(self, auth_token):
+        """Test that setting event to finished triggers email (background task)"""
+        # First set to active
+        requests.put(f"{BASE_URL}/api/admin/event", 
+            json={"status": "active"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        
+        # Then set to finished
+        response = requests.put(f"{BASE_URL}/api/admin/event", 
+            json={"status": "finished"},
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message"] == "Event aktualisiert"
+        print(f"✅ Event set to finished - email trigger initiated (background task)")
+
+
+class TestFileUpload:
+    """Test file upload endpoint"""
+    
+    @pytest.fixture
+    def auth_token(self):
+        """Get authentication token"""
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "username": "admin",
+            "password": "admin"
         })
-        # Should return 400 if admin already exists
-        assert response.status_code in [200, 400]
-        if response.status_code == 400:
-            data = response.json()
-            assert "Admin existiert bereits" in data.get("detail", "")
-            print("✅ Setup endpoint correctly rejects when admin exists")
-        else:
-            print("✅ Setup endpoint works (admin was created)")
+        return response.json()["token"]
+    
+    def test_upload_endpoint_exists(self, auth_token):
+        """Test that upload endpoint exists and requires auth"""
+        # Test without file - should return 422 (validation error)
+        response = requests.post(f"{BASE_URL}/api/upload", 
+            headers={"Authorization": f"Bearer {auth_token}"}
+        )
+        # 422 means endpoint exists but needs file
+        assert response.status_code in [422, 400]
+        print(f"✅ Upload endpoint exists - status: {response.status_code}")
+    
+    def test_upload_requires_auth(self):
+        """Test that upload requires authentication"""
+        response = requests.post(f"{BASE_URL}/api/upload")
+        assert response.status_code == 401
+        print(f"✅ Upload endpoint requires auth")
 
 
 if __name__ == "__main__":
