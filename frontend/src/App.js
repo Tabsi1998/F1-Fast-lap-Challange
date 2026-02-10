@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
@@ -6,12 +6,14 @@ import { Toaster, toast } from "sonner";
 import { 
     Trophy, Timer, Flag, Plus, Trash2, Download, FileText, Edit2, 
     X, Check, Users, User, RefreshCw, Settings, LogOut, LogIn,
-    MapPin, Calendar, Clock, ChevronRight
+    MapPin, Calendar, ChevronRight, Palette, Key, Mail, Bell, Send,
+    Clock, Play, Square, UserPlus, Eye, Upload, Image
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -22,70 +24,141 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+    Tabs, TabsContent, TabsList, TabsTrigger,
+} from "@/components/ui/tabs";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// Für Docker: BACKEND_URL leer lassen (API calls gehen über nginx proxy)
+// Für Entwicklung: REACT_APP_BACKEND_URL setzen (z.B. http://localhost:8001)
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
+// Wenn BACKEND_URL bereits /api enthält, nicht nochmal hinzufügen
+const API = BACKEND_URL.endsWith('/api') ? BACKEND_URL : `${BACKEND_URL}/api`;
 
-// Auth Context
+// Auth Hook
 const useAuth = () => {
     const [token, setToken] = useState(localStorage.getItem('f1_token'));
     const [username, setUsername] = useState(localStorage.getItem('f1_username'));
-
-    const login = (newToken, newUsername) => {
-        localStorage.setItem('f1_token', newToken);
-        localStorage.setItem('f1_username', newUsername);
-        setToken(newToken);
-        setUsername(newUsername);
-    };
-
-    const logout = () => {
-        localStorage.removeItem('f1_token');
-        localStorage.removeItem('f1_username');
-        setToken(null);
-        setUsername(null);
-    };
-
-    const getAuthHeader = () => token ? { Authorization: `Bearer ${token}` } : {};
-
-    return { token, username, login, logout, getAuthHeader, isAuthenticated: !!token };
-};
-
-// Rank Badge Component
-const RankBadge = ({ rank, large = false }) => {
-    let badgeClass = `rank-badge ${large ? 'rank-badge-lg' : ''} `;
-    if (rank === 1) badgeClass += "rank-1";
-    else if (rank === 2) badgeClass += "rank-2";
-    else if (rank === 3) badgeClass += "rank-3";
-    else badgeClass += "rank-default";
+    const [mustChangePassword, setMustChangePassword] = useState(localStorage.getItem('f1_must_change_pw') === 'true');
     
-    return <div className={badgeClass} data-testid={`rank-badge-${rank}`}>{rank}</div>;
+    const login = useCallback((newToken, newUsername, needsPwChange = false) => { 
+        localStorage.setItem('f1_token', newToken); 
+        localStorage.setItem('f1_username', newUsername); 
+        localStorage.setItem('f1_must_change_pw', needsPwChange ? 'true' : 'false');
+        setToken(newToken); 
+        setUsername(newUsername);
+        setMustChangePassword(needsPwChange);
+    }, []);
+    
+    const logout = useCallback(() => { 
+        localStorage.removeItem('f1_token'); 
+        localStorage.removeItem('f1_username'); 
+        localStorage.removeItem('f1_must_change_pw');
+        setToken(null); 
+        setUsername(null);
+        setMustChangePassword(false);
+    }, []);
+    
+    const clearPasswordFlag = useCallback(() => {
+        localStorage.setItem('f1_must_change_pw', 'false');
+        setMustChangePassword(false);
+    }, []);
+    
+    const getAuthHeader = useCallback(() => token ? { Authorization: `Bearer ${token}` } : {}, [token]);
+    
+    return { token, username, mustChangePassword, login, logout, clearPasswordFlag, getAuthHeader, isAuthenticated: !!token };
 };
 
-// Status Banner Component
-const StatusBanner = ({ status, message }) => {
-    const statusClass = `status-banner status-${status}`;
+// Timer Display Component
+const TimerDisplay = ({ endTime, onExpire }) => {
+    const [remaining, setRemaining] = useState(0);
+    
+    useEffect(() => {
+        if (!endTime) return;
+        const end = new Date(endTime).getTime();
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const diff = Math.max(0, Math.floor((end - now) / 1000));
+            setRemaining(diff);
+            if (diff === 0 && onExpire) onExpire();
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [endTime, onExpire]);
+    
+    if (!endTime || remaining <= 0) return null;
+    
+    const hours = Math.floor(remaining / 3600);
+    const minutes = Math.floor((remaining % 3600) / 60);
+    const seconds = remaining % 60;
+    
     return (
-        <div className={statusClass} data-testid="status-banner">
-            <Flag size={16} className="inline-block mr-2" />
+        <div className="timer-display" data-testid="timer-display">
+            <Clock size={20} className="text-[var(--primary-color)]" />
+            <span className="timer-value">
+                {hours > 0 && `${hours.toString().padStart(2, '0')}:`}
+                {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+            </span>
+        </div>
+    );
+};
+
+// Rank Badge
+const RankBadge = ({ rank, design }) => {
+    let bgColor = design?.surface_color || '#1A1A1A';
+    if (rank === 1) bgColor = design?.gold_color || '#FFD700';
+    else if (rank === 2) bgColor = design?.silver_color || '#C0C0C0';
+    else if (rank === 3) bgColor = design?.bronze_color || '#CD7F32';
+    
+    const textColor = rank <= 3 ? '#000' : (design?.text_secondary || '#A0A0A0');
+    
+    return (
+        <div className="rank-badge" style={{ background: rank <= 3 ? `linear-gradient(135deg, ${bgColor}, ${bgColor}99)` : bgColor, color: textColor }}>
+            {rank}
+        </div>
+    );
+};
+
+// Status Banner
+const StatusBanner = ({ status, message, design }) => {
+    const colors = {
+        inactive: design?.status_inactive_color || '#525252',
+        scheduled: design?.status_scheduled_color || '#FFA500',
+        active: design?.status_active_color || '#00FF00',
+        finished: design?.status_finished_color || '#FF1E1E'
+    };
+    
+    return (
+        <div className="status-banner" style={{ background: `${colors[status]}33`, color: colors[status] }}>
+            <Flag size={14} className="inline-block mr-2" />
             {message}
         </div>
     );
 };
 
-// ==================== PUBLIC LEADERBOARD PAGE ====================
+// ==================== PUBLIC LEADERBOARD ====================
 const PublicLeaderboard = () => {
     const [entries, setEntries] = useState([]);
     const [eventStatus, setEventStatus] = useState(null);
+    const [design, setDesign] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchData = useCallback(async () => {
         try {
-            const [entriesRes, statusRes] = await Promise.all([
+            const [entriesRes, statusRes, designRes] = await Promise.all([
                 axios.get(`${API}/laps`),
-                axios.get(`${API}/event/status`)
+                axios.get(`${API}/event/status`),
+                axios.get(`${API}/design`)
             ]);
             setEntries(entriesRes.data);
             setEventStatus(statusRes.data);
+            setDesign(designRes.data);
+            
+            // Update page title and favicon dynamically
+            const d = designRes.data;
+            document.title = d.site_title || 'F1 Fast Lap Challenge';
+            const faviconEl = document.getElementById('dynamic-favicon');
+            if (faviconEl && d.favicon_url) {
+                faviconEl.href = d.favicon_url;
+            }
         } catch (error) {
             console.error(error);
         } finally {
@@ -95,133 +168,97 @@ const PublicLeaderboard = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 10000); // Auto-refresh every 10 seconds
+        const interval = setInterval(fetchData, 5000);
         return () => clearInterval(interval);
     }, [fetchData]);
 
-    const handleExportCSV = () => window.open(`${API}/export/csv`, '_blank');
-
-    const handleExportPDF = async () => {
-        try {
-            const response = await axios.get(`${API}/export/pdf`);
-            const data = response.data;
-            
-            const printContent = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>F1 Fast Lap Challenge</title>
-                    <style>
-                        @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=Barlow:wght@400;600&family=JetBrains+Mono&display=swap');
-                        body { font-family: 'Barlow', sans-serif; padding: 40px; background: #fff; color: #000; }
-                        h1 { font-family: 'Russo One', sans-serif; font-size: 2rem; margin-bottom: 0.5rem; color: #FF1E1E; }
-                        .track { color: #666; margin-bottom: 1rem; }
-                        .subtitle { color: #666; margin-bottom: 2rem; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th { font-family: 'Russo One', sans-serif; text-align: left; padding: 12px; background: #1A1A1A; color: #fff; font-size: 0.75rem; text-transform: uppercase; }
-                        td { padding: 12px; border-bottom: 1px solid #eee; }
-                        .rank { font-family: 'Russo One', sans-serif; font-weight: bold; width: 50px; }
-                        .rank-1 { color: #FFD700; } .rank-2 { color: #C0C0C0; } .rank-3 { color: #CD7F32; }
-                        .time { font-family: 'JetBrains Mono', monospace; font-weight: bold; }
-                        .gap { font-family: 'JetBrains Mono', monospace; color: #666; }
-                    </style>
-                </head>
-                <body>
-                    <h1>F1 FAST LAP CHALLENGE</h1>
-                    ${data.track_name ? `<p class="track">${data.track_name}</p>` : ''}
-                    <p class="subtitle">Exportiert: ${new Date(data.exported_at).toLocaleString('de-DE')}</p>
-                    <table>
-                        <thead><tr><th>Platz</th><th>Fahrer</th><th>Team</th><th>Rundenzeit</th><th>Abstand</th></tr></thead>
-                        <tbody>
-                            ${data.entries.map(e => `
-                                <tr>
-                                    <td class="rank ${e.rank <= 3 ? `rank-${e.rank}` : ''}">${e.rank}</td>
-                                    <td>${e.driver_name}</td><td>${e.team || '-'}</td>
-                                    <td class="time">${e.lap_time_display}</td><td class="gap">${e.gap}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </body>
-                </html>
-            `;
-            
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(printContent);
-            printWindow.document.close();
-            printWindow.print();
-        } catch (error) {
-            toast.error("Fehler beim PDF Export");
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <div className="racing-bg fullscreen-leaderboard">
-                <div className="racing-overlay flex-1 flex items-center justify-center">
-                    <div className="spinner"></div>
-                </div>
-            </div>
-        );
+    if (isLoading || !design) {
+        return <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}><div className="spinner"></div></div>;
     }
 
+    const cssVars = {
+        '--bg-color': design.bg_color,
+        '--surface-color': design.surface_color,
+        '--primary-color': design.primary_color,
+        '--accent-color': design.accent_color,
+        '--text-color': design.text_color,
+        '--text-secondary': design.text_secondary,
+        '--heading-font': design.heading_font,
+        '--body-font': design.body_font,
+        '--time-font': design.time_font,
+    };
+
     return (
-        <div className="racing-bg fullscreen-leaderboard" data-testid="public-leaderboard">
-            <div className="racing-overlay flex-1 flex flex-col">
-                <Toaster position="top-right" toastOptions={{ style: { background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}} />
+        <div className="min-h-screen flex flex-col" style={{ ...cssVars, background: design.bg_image_url ? `url(${design.bg_image_url}) center/cover fixed` : design.bg_color }}>
+            <div className="min-h-screen flex flex-col" style={{ background: design.bg_image_url ? `rgba(0,0,0,${design.bg_overlay_opacity})` : 'transparent' }}>
+                <Toaster position="top-right" />
                 
-                {/* Status Banner */}
-                {eventStatus && <StatusBanner status={eventStatus.status} message={eventStatus.message} />}
-                
-                {/* Header */}
-                <header className="public-header">
-                    <h1 className="public-title" data-testid="public-title">
-                        <Flag size={32} className="inline-block mr-3 text-[var(--primary-red)]" />
-                        F1 <span>FAST LAP</span> CHALLENGE
+                <header className="public-header" style={{ background: `${design.bg_color}ee`, fontFamily: design.heading_font }}>
+                    <div className="flex items-center justify-between mb-2">
+                        <div></div>
+                        <Link to="/admin">
+                            <Button className="btn-secondary" size="sm" style={{ borderColor: design.primary_color }}><LogIn size={16} className="mr-2" /> Admin</Button>
+                        </Link>
+                    </div>
+                    
+                    <h1 className="public-title" style={{ fontFamily: design.title_font || design.heading_font }}>
+                        <Flag size={28} style={{ color: design.primary_color }} />
+                        <span style={{ color: design.title_color1 }}>{design.title_line1}</span>
+                        <span style={{ color: design.title_color2 }}>{design.title_line2}</span>
+                        <span style={{ color: design.title_color3 }}>{design.title_line3}</span>
                     </h1>
-                    {eventStatus?.track_name && (
-                        <p className="track-info">
-                            <MapPin size={16} />
-                            {eventStatus.track_name}
-                        </p>
+                    
+                    {eventStatus && <div className="mt-3"><StatusBanner status={eventStatus.status} message={eventStatus.message} design={design} /></div>}
+                    
+                    {eventStatus?.timer_enabled && eventStatus?.timer_end_time && eventStatus?.status === 'active' && (
+                        <div className="mt-3 flex justify-center">
+                            <TimerDisplay endTime={eventStatus.timer_end_time} />
+                        </div>
                     )}
                 </header>
                 
-                {/* Leaderboard */}
-                <div className="flex-1 overflow-auto">
-                    <div className="leaderboard-list">
+                {eventStatus?.track && (
+                    <div className="px-4 pt-4">
+                        <div className="max-w-sm mx-auto rounded-xl overflow-hidden" style={{ background: `${design.surface_color}cc`, border: `1px solid ${design.surface_color}` }}>
+                            {eventStatus.track.image_url && <img src={eventStatus.track.image_url} alt={eventStatus.track.name} className="w-full h-24 object-cover" />}
+                            <div className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-2" style={{ color: design.text_secondary }}>
+                                    <MapPin size={16} />
+                                    <span style={{ fontFamily: design.heading_font, color: design.text_color }}>{eventStatus.track.name}</span>
+                                </div>
+                                <div className="text-sm" style={{ color: design.text_secondary }}>{eventStatus.track.country}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="flex-1 overflow-auto p-4">
+                    <div className="max-w-2xl mx-auto">
                         {entries.length === 0 ? (
-                            <div className="empty-state" data-testid="empty-leaderboard">
-                                <Timer size={64} className="mx-auto mb-4 text-[var(--text-muted)]" />
-                                <p className="empty-state-text">Noch keine Rundenzeiten</p>
+                            <div className="text-center py-12" style={{ color: design.text_secondary }}>
+                                <Timer size={64} className="mx-auto mb-4 opacity-50" />
+                                <p style={{ fontFamily: design.body_font }}>Noch keine Rundenzeiten</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 {entries.map((entry, idx) => (
-                                    <div 
-                                        key={entry.id}
-                                        className={`leaderboard-entry animate-slide-in ${entry.rank <= 3 ? `top-${entry.rank}` : ''}`}
-                                        style={{ animationDelay: `${idx * 50}ms` }}
-                                        data-testid={`leaderboard-entry-${entry.id}`}
-                                    >
-                                        <RankBadge rank={entry.rank} large={entry.rank <= 3} />
+                                    <div key={entry.id} className="leaderboard-entry animate-slide-in" 
+                                        style={{ 
+                                            background: `${design.surface_color}aa`, 
+                                            borderColor: entry.rank <= 3 ? (entry.rank === 1 ? design.gold_color : entry.rank === 2 ? design.silver_color : design.bronze_color) : 'transparent',
+                                            borderWidth: '1px',
+                                            borderStyle: 'solid',
+                                            animationDelay: `${idx * 50}ms`,
+                                            backdropFilter: 'blur(8px)'
+                                        }}>
+                                        <RankBadge rank={entry.rank} design={design} />
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-heading text-white text-lg truncate" data-testid={`driver-${entry.id}`}>
-                                                {entry.driver_name}
-                                            </div>
-                                            {entry.team && (
-                                                <div className="text-[var(--text-secondary)] text-sm truncate">
-                                                    {entry.team}
-                                                </div>
-                                            )}
+                                            <div className="truncate" style={{ fontFamily: design.heading_font, color: design.text_color, fontSize: '1.1rem' }}>{entry.driver_name}</div>
+                                            {entry.team && <div className="truncate text-sm" style={{ color: design.text_secondary }}>{entry.team}</div>}
                                         </div>
                                         <div className="text-right flex-shrink-0">
-                                            <div className="font-mono text-xl text-[var(--accent-neon)]" data-testid={`time-${entry.id}`}>
-                                                {entry.lap_time_display}
-                                            </div>
-                                            <div className="font-mono text-sm text-[var(--text-secondary)]">
-                                                {entry.gap}
-                                            </div>
+                                            <div style={{ fontFamily: design.time_font, color: design.accent_color, fontSize: '1.25rem' }}>{entry.lap_time_display}</div>
+                                            <div className="text-sm" style={{ fontFamily: design.time_font, color: design.text_secondary }}>{entry.gap}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -229,25 +266,6 @@ const PublicLeaderboard = () => {
                         )}
                     </div>
                 </div>
-                
-                {/* Footer Actions */}
-                {entries.length > 0 && (
-                    <div className="p-4 border-t border-[var(--border-default)] flex justify-center gap-3 flex-wrap">
-                        <Button onClick={handleExportCSV} className="btn-secondary" data-testid="export-csv-btn">
-                            <FileText size={16} className="mr-2" /> CSV
-                        </Button>
-                        <Button onClick={handleExportPDF} className="btn-secondary" data-testid="export-pdf-btn">
-                            <Download size={16} className="mr-2" /> PDF
-                        </Button>
-                    </div>
-                )}
-                
-                {/* Admin Link */}
-                <Link to="/admin" className="admin-link">
-                    <Button className="btn-secondary" size="sm" data-testid="admin-link-btn">
-                        <Settings size={16} className="mr-2" /> Admin
-                    </Button>
-                </Link>
             </div>
         </div>
     );
@@ -256,107 +274,56 @@ const PublicLeaderboard = () => {
 // ==================== LOGIN PAGE ====================
 const LoginPage = () => {
     const navigate = useNavigate();
-    const { login } = useAuth();
-    const [isSetup, setIsSetup] = useState(false);
+    const { login, isAuthenticated } = useAuth();
     const [hasAdmin, setHasAdmin] = useState(null);
-    const [username, setUsername] = useState("");
+    const [username, setUsername] = useState("admin");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        axios.get(`${API}/auth/has-admin`).then(res => {
-            setHasAdmin(res.data.has_admin);
-            setIsSetup(!res.data.has_admin);
-        }).catch(() => setHasAdmin(false));
-    }, []);
+        if (isAuthenticated) { navigate('/admin/dashboard'); return; }
+        axios.get(`${API}/auth/has-admin`).then(res => { setHasAdmin(res.data.has_admin); }).catch(() => setHasAdmin(true));
+    }, [isAuthenticated, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!username.trim() || !password.trim()) {
-            toast.error("Bitte alle Felder ausfüllen");
-            return;
-        }
+        if (!username.trim() || !password.trim()) { toast.error("Bitte alle Felder ausfüllen"); return; }
         
         setIsLoading(true);
         try {
-            const endpoint = isSetup ? `${API}/auth/setup` : `${API}/auth/login`;
-            const response = await axios.post(endpoint, { username, password });
-            login(response.data.token, response.data.username);
-            toast.success(isSetup ? "Admin-Konto erstellt!" : "Erfolgreich angemeldet!");
+            const response = await axios.post(`${API}/auth/login`, { username, password });
+            login(response.data.token, response.data.username, response.data.must_change_password);
+            toast.success("Angemeldet!");
             navigate('/admin/dashboard');
         } catch (error) {
-            toast.error(error.response?.data?.detail || "Fehler bei der Anmeldung");
+            toast.error(error.response?.data?.detail || "Fehler");
         } finally {
             setIsLoading(false);
         }
     };
 
-    if (hasAdmin === null) {
-        return <div className="racing-bg login-container"><div className="spinner"></div></div>;
-    }
+    if (hasAdmin === null) return <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]"><div className="spinner"></div></div>;
 
     return (
-        <div className="racing-bg" data-testid="login-page">
-            <div className="racing-overlay login-container">
-                <Toaster position="top-right" />
-                <div className="login-card animate-fade-in">
-                    <div className="text-center mb-6">
-                        <Flag size={48} className="mx-auto text-[var(--primary-red)] mb-2" />
-                        <h1 className="login-title">
-                            {isSetup ? "Admin Setup" : "Admin Login"}
-                        </h1>
-                        {isSetup && (
-                            <p className="text-[var(--text-secondary)] text-sm">
-                                Erstelle dein Administrator-Konto
-                            </p>
-                        )}
-                    </div>
-                    
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="form-field">
-                            <Label className="form-label">Benutzername</Label>
-                            <Input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                placeholder="admin"
-                                className="input-racing"
-                                data-testid="username-input"
-                            />
-                        </div>
-                        
-                        <div className="form-field">
-                            <Label className="form-label">Passwort</Label>
-                            <Input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="input-racing"
-                                data-testid="password-input"
-                            />
-                        </div>
-                        
-                        <Button type="submit" className="btn-primary w-full" disabled={isLoading} data-testid="login-btn">
-                            {isLoading ? <RefreshCw size={18} className="animate-spin" /> : (
-                                <>{isSetup ? "Konto erstellen" : "Anmelden"} <ChevronRight size={18} className="ml-2" /></>
-                            )}
-                        </Button>
-                    </form>
-                    
-                    {hasAdmin && (
-                        <button 
-                            onClick={() => setIsSetup(!isSetup)}
-                            className="w-full mt-4 text-center text-sm text-[var(--text-secondary)] hover:text-white transition-colors"
-                        >
-                            {isSetup ? "Bereits registriert? Anmelden" : ""}
-                        </button>
-                    )}
-                    
-                    <Link to="/" className="block mt-6 text-center text-sm text-[var(--text-secondary)] hover:text-[var(--primary-red)] transition-colors">
-                        ← Zurück zur Rangliste
-                    </Link>
+        <div className="min-h-screen flex items-center justify-center p-4 bg-[#0A0A0A]">
+            <Toaster position="top-right" />
+            <div className="w-full max-w-md p-8 rounded-xl bg-[#1A1A1A] border border-[#333]">
+                <div className="text-center mb-6">
+                    <Flag size={48} className="mx-auto text-[#FF1E1E] mb-2" />
+                    <h1 className="text-2xl font-bold text-white">Admin Login</h1>
+                    <p className="text-[#A0A0A0] text-sm mt-2">Standard: admin / admin</p>
                 </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div><Label className="text-[#A0A0A0] text-xs uppercase">Benutzername</Label>
+                        <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" className="bg-[#0A0A0A] border-[#333] text-white" /></div>
+                    <div><Label className="text-[#A0A0A0] text-xs uppercase">Passwort</Label>
+                        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="admin" className="bg-[#0A0A0A] border-[#333] text-white" /></div>
+                    <Button type="submit" className="w-full bg-[#FF1E1E] hover:bg-[#D61A1A] text-white" disabled={isLoading}>
+                        {isLoading ? <RefreshCw size={18} className="animate-spin" /> : <>Anmelden <ChevronRight size={18} className="ml-2" /></>}
+                    </Button>
+                </form>
+                <Link to="/" className="block mt-6 text-center text-sm text-[#A0A0A0] hover:text-[#FF1E1E]">← Zur Rangliste</Link>
             </div>
         </div>
     );
@@ -365,61 +332,81 @@ const LoginPage = () => {
 // ==================== ADMIN DASHBOARD ====================
 const AdminDashboard = () => {
     const navigate = useNavigate();
-    const { token, username, logout, getAuthHeader, isAuthenticated } = useAuth();
+    const { token, username, mustChangePassword, logout, clearPasswordFlag, getAuthHeader, isAuthenticated } = useAuth();
     
     const [entries, setEntries] = useState([]);
     const [tracks, setTracks] = useState([]);
     const [eventStatus, setEventStatus] = useState(null);
+    const [design, setDesign] = useState(null);
+    const [participants, setParticipants] = useState([]);
+    const [emailTemplate, setEmailTemplate] = useState(null);
+    const [smtpSettings, setSmtpSettings] = useState(null);
+    const [adminProfile, setAdminProfile] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showTeam, setShowTeam] = useState(true);
+    const [showEmail, setShowEmail] = useState(false);
     
     // Form states
     const [driverName, setDriverName] = useState("");
     const [team, setTeam] = useState("");
+    const [driverEmail, setDriverEmail] = useState("");
     const [lapTime, setLapTime] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     
-    // Edit dialog
+    // Dialog states
+    const [activeDialog, setActiveDialog] = useState(null);
     const [editEntry, setEditEntry] = useState(null);
-    const [editDialogOpen, setEditDialogOpen] = useState(false);
-    
-    // Track dialog
-    const [trackDialogOpen, setTrackDialogOpen] = useState(false);
+    const [editTrack, setEditTrack] = useState(null);
+    const [newParticipantName, setNewParticipantName] = useState("");
+    const [newParticipantEmail, setNewParticipantEmail] = useState("");
     const [newTrackName, setNewTrackName] = useState("");
     const [newTrackCountry, setNewTrackCountry] = useState("");
+    const [newTrackImage, setNewTrackImage] = useState("");
+    const [currentPassword, setCurrentPassword] = useState("admin");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [emailPreview, setEmailPreview] = useState(null);
     
-    // Event settings
-    const [eventSettingsOpen, setEventSettingsOpen] = useState(false);
-    const [selectedStatus, setSelectedStatus] = useState("inactive");
-    const [selectedTrack, setSelectedTrack] = useState("");
-    const [scheduledDate, setScheduledDate] = useState("");
-    const [scheduledTime, setScheduledTime] = useState("");
-
+    // Einmaliger Auth-Check beim Mount
+    const authCheckedRef = useRef(false);
     useEffect(() => {
-        if (!isAuthenticated) {
-            navigate('/admin');
-            return;
-        }
+        if (!isAuthenticated) { navigate('/admin'); return; }
+        if (authCheckedRef.current) return;
+        authCheckedRef.current = true;
         
-        // Check token validity
-        axios.get(`${API}/auth/check`, { headers: getAuthHeader() })
-            .catch(() => {
-                logout();
-                navigate('/admin');
-            });
-    }, [isAuthenticated, navigate, getAuthHeader, logout]);
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        axios.get(`${API}/auth/check`, { headers })
+            .then(res => {
+                setAdminProfile(res.data);
+                if (res.data.must_change_password) {
+                    setActiveDialog('forcePassword');
+                    toast.info("Bitte ändern Sie Ihr Standard-Passwort!");
+                }
+            })
+            .catch(() => { logout(); navigate('/admin'); });
+    }, [isAuthenticated, navigate, logout, token]);
 
     const fetchData = useCallback(async () => {
         if (!token) return;
+        const headers = { Authorization: `Bearer ${token}` };
         try {
-            const [entriesRes, tracksRes, statusRes] = await Promise.all([
+            const [entriesRes, tracksRes, statusRes, designRes, participantsRes, templateRes, smtpRes] = await Promise.all([
                 axios.get(`${API}/laps`),
                 axios.get(`${API}/tracks`),
-                axios.get(`${API}/event/status`)
+                axios.get(`${API}/event/status`),
+                axios.get(`${API}/design`),
+                axios.get(`${API}/admin/participants`, { headers }).catch(() => ({ data: [] })),
+                axios.get(`${API}/admin/email-template`, { headers }).catch(() => ({ data: null })),
+                axios.get(`${API}/admin/smtp`, { headers }).catch(() => ({ data: null }))
             ]);
             setEntries(entriesRes.data);
             setTracks(tracksRes.data);
             setEventStatus(statusRes.data);
+            setDesign(designRes.data);
+            setParticipants(participantsRes.data);
+            setEmailTemplate(templateRes.data);
+            setSmtpSettings(smtpRes.data);
         } catch (error) {
             console.error(error);
         } finally {
@@ -427,509 +414,724 @@ const AdminDashboard = () => {
         }
     }, [token]);
 
-    useEffect(() => {
-        fetchData();
+    // Einmaliges Fetchen beim Mount
+    const dataFetchedRef = useRef(false);
+    useEffect(() => { 
+        if (dataFetchedRef.current) return;
+        dataFetchedRef.current = true;
+        fetchData(); 
     }, [fetchData]);
 
+    // Handlers
+    const handleUploadImage = async (file) => {
+        if (!file) return null;
+        setUploadingImage(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await axios.post(`${API}/upload`, formData, { 
+                headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' }
+            });
+            return res.data.url;
+        } catch (error) {
+            toast.error("Upload fehlgeschlagen");
+            return null;
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+    
     const handleAddEntry = async (e) => {
         e.preventDefault();
-        if (!driverName.trim() || !lapTime.trim()) {
-            toast.error("Bitte Fahrername und Zeit eingeben");
-            return;
-        }
-        
-        const timeRegex = /^\d{1,2}:\d{2}\.\d{1,3}$/;
-        if (!timeRegex.test(lapTime)) {
-            toast.error("Ungültiges Zeitformat (z.B. 1:23.456)");
-            return;
-        }
-        
+        if (!driverName.trim() || !lapTime.trim()) { toast.error("Fahrername und Zeit erforderlich"); return; }
+        if (!/^\d{1,2}:\d{2}\.\d{1,3}$/.test(lapTime)) { toast.error("Format: M:SS.mmm"); return; }
         setIsSubmitting(true);
         try {
-            await axios.post(`${API}/admin/laps`, {
-                driver_name: driverName.trim(),
-                team: showTeam ? team.trim() || null : null,
-                lap_time_display: lapTime.trim()
+            await axios.post(`${API}/admin/laps`, { 
+                driver_name: driverName.trim(), 
+                team: showTeam ? team.trim() || null : null, 
+                email: showEmail ? driverEmail.trim() || null : null,
+                lap_time_display: lapTime.trim() 
             }, { headers: getAuthHeader() });
-            
-            setDriverName("");
-            setTeam("");
-            setLapTime("");
-            toast.success("Rundenzeit hinzugefügt!");
+            setDriverName(""); setTeam(""); setDriverEmail(""); setLapTime("");
+            toast.success("Hinzugefügt!");
             fetchData();
-        } catch (error) {
-            toast.error(error.response?.data?.detail || "Fehler beim Hinzufügen");
-        } finally {
-            setIsSubmitting(false);
-        }
+        } catch (error) { toast.error(error.response?.data?.detail || "Fehler"); }
+        finally { setIsSubmitting(false); }
     };
 
-    const handleDeleteEntry = async (id) => {
-        try {
-            await axios.delete(`${API}/admin/laps/${id}`, { headers: getAuthHeader() });
-            toast.success("Eintrag gelöscht!");
-            fetchData();
-        } catch (error) {
-            toast.error("Fehler beim Löschen");
-        }
-    };
-
-    const handleDeleteAll = async () => {
-        try {
-            await axios.delete(`${API}/admin/laps`, { headers: getAuthHeader() });
-            toast.success("Alle Einträge gelöscht!");
-            fetchData();
-        } catch (error) {
-            toast.error("Fehler beim Löschen");
-        }
-    };
-
+    const handleDeleteEntry = async (id) => { await axios.delete(`${API}/admin/laps/${id}`, { headers: getAuthHeader() }); toast.success("Gelöscht!"); fetchData(); };
+    const handleDeleteAll = async () => { await axios.delete(`${API}/admin/laps`, { headers: getAuthHeader() }); toast.success("Alle gelöscht!"); fetchData(); };
+    
     const handleUpdateEntry = async () => {
         if (!editEntry) return;
-        
-        const timeRegex = /^\d{1,2}:\d{2}\.\d{1,3}$/;
-        if (!timeRegex.test(editEntry.lap_time_display)) {
-            toast.error("Ungültiges Zeitformat");
-            return;
-        }
-        
-        try {
-            await axios.put(`${API}/admin/laps/${editEntry.id}`, {
-                driver_name: editEntry.driver_name,
-                team: editEntry.team,
-                lap_time_display: editEntry.lap_time_display
-            }, { headers: getAuthHeader() });
-            
-            toast.success("Eintrag aktualisiert!");
-            setEditDialogOpen(false);
-            fetchData();
-        } catch (error) {
-            toast.error(error.response?.data?.detail || "Fehler beim Speichern");
-        }
+        await axios.put(`${API}/admin/laps/${editEntry.id}`, editEntry, { headers: getAuthHeader() });
+        toast.success("Aktualisiert!"); setActiveDialog(null); setEditEntry(null); fetchData();
+    };
+
+    const handleSaveDesign = async (newDesign) => {
+        await axios.put(`${API}/admin/design`, newDesign, { headers: getAuthHeader() });
+        toast.success("Design gespeichert!"); fetchData();
+    };
+
+    const handleSaveEvent = async (eventData) => {
+        await axios.put(`${API}/admin/event`, eventData, { headers: getAuthHeader() });
+        toast.success("Event aktualisiert!"); setActiveDialog(null); fetchData();
     };
 
     const handleAddTrack = async () => {
-        if (!newTrackName.trim() || !newTrackCountry.trim()) {
-            toast.error("Bitte Name und Land eingeben");
-            return;
-        }
-        
-        try {
-            await axios.post(`${API}/admin/tracks`, {
-                name: newTrackName.trim(),
-                country: newTrackCountry.trim()
-            }, { headers: getAuthHeader() });
-            
-            toast.success("Strecke hinzugefügt!");
-            setNewTrackName("");
-            setNewTrackCountry("");
-            setTrackDialogOpen(false);
-            fetchData();
-        } catch (error) {
-            toast.error("Fehler beim Hinzufügen");
-        }
+        if (!newTrackName.trim()) return;
+        await axios.post(`${API}/admin/tracks`, { name: newTrackName, country: newTrackCountry, image_url: newTrackImage || null }, { headers: getAuthHeader() });
+        setNewTrackName(""); setNewTrackCountry(""); setNewTrackImage("");
+        toast.success("Strecke hinzugefügt!"); fetchData();
     };
 
-    const handleDeleteTrack = async (id) => {
+    const handleDeleteTrack = async (id) => { await axios.delete(`${API}/admin/tracks/${id}`, { headers: getAuthHeader() }); toast.success("Gelöscht!"); fetchData(); };
+
+    const handleChangePassword = async (isForced = false) => {
+        if (newPassword !== confirmPassword) { toast.error("Passwörter stimmen nicht überein"); return; }
+        if (newPassword.length < 4) { toast.error("Neues Passwort min. 4 Zeichen"); return; }
         try {
-            await axios.delete(`${API}/admin/tracks/${id}`, { headers: getAuthHeader() });
-            toast.success("Strecke gelöscht!");
-            fetchData();
-        } catch (error) {
-            toast.error("Fehler beim Löschen");
-        }
+            await axios.put(`${API}/admin/password`, { current_password: currentPassword, new_password: newPassword }, { headers: getAuthHeader() });
+            toast.success("Passwort geändert!"); 
+            setActiveDialog(null);
+            setCurrentPassword("admin"); setNewPassword(""); setConfirmPassword("");
+            clearPasswordFlag();
+        } catch (error) { toast.error(error.response?.data?.detail || "Fehler"); }
     };
 
-    const handleUpdateEvent = async () => {
-        try {
-            await axios.put(`${API}/admin/event`, {
-                status: selectedStatus,
-                scheduled_date: scheduledDate || null,
-                scheduled_time: scheduledTime || null,
-                track_id: selectedTrack || null
-            }, { headers: getAuthHeader() });
-            
-            toast.success("Event aktualisiert!");
-            setEventSettingsOpen(false);
-            fetchData();
-        } catch (error) {
-            toast.error("Fehler beim Aktualisieren");
-        }
+    const handleSaveSmtp = async (smtpData) => {
+        await axios.put(`${API}/admin/smtp`, smtpData, { headers: getAuthHeader() });
+        toast.success("SMTP gespeichert!"); fetchData();
     };
 
-    const handleLogout = () => {
-        logout();
-        navigate('/admin');
+    const handleTestSmtp = async () => {
+        try {
+            await axios.post(`${API}/admin/smtp/test`, {}, { headers: getAuthHeader() });
+            toast.success("Test-E-Mail gesendet!");
+        } catch (error) { toast.error(error.response?.data?.detail || "Fehler"); }
     };
+
+    const handleSaveEmailTemplate = async (templateData) => {
+        await axios.put(`${API}/admin/email-template`, templateData, { headers: getAuthHeader() });
+        toast.success("Template gespeichert!"); fetchData();
+    };
+
+    const handlePreviewEmail = async () => {
+        const res = await axios.get(`${API}/admin/email-template/preview`, { headers: getAuthHeader() });
+        setEmailPreview(res.data);
+    };
+
+    const handleAddParticipant = async () => {
+        if (!newParticipantName.trim() || !newParticipantEmail.trim()) return;
+        await axios.post(`${API}/admin/participants`, { name: newParticipantName, email: newParticipantEmail }, { headers: getAuthHeader() });
+        setNewParticipantName(""); setNewParticipantEmail("");
+        toast.success("Teilnehmer hinzugefügt!"); fetchData();
+    };
+
+    const handleDeleteParticipant = async (id) => { await axios.delete(`${API}/admin/participants/${id}`, { headers: getAuthHeader() }); fetchData(); };
+
+    const handleSendEmails = async () => {
+        await axios.post(`${API}/admin/send-results`, {}, { headers: getAuthHeader() });
+        toast.success("E-Mails werden gesendet!");
+    };
+
+    const handleExportCSV = () => window.open(`${API}/admin/export/csv`, '_blank');
 
     if (!isAuthenticated) return null;
-
-    if (isLoading) {
-        return (
-            <div className="racing-bg min-h-screen">
-                <div className="racing-overlay min-h-screen flex items-center justify-center">
-                    <div className="spinner"></div>
-                </div>
-            </div>
-        );
-    }
+    if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]"><div className="spinner"></div></div>;
 
     return (
-        <div className="racing-bg min-h-screen" data-testid="admin-dashboard">
-            <div className="racing-overlay min-h-screen">
-                <Toaster position="top-right" toastOptions={{ style: { background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border-default)' }}} />
+        <div className="min-h-screen bg-[#0A0A0A] text-white">
+            <Toaster position="top-right" />
+            
+            {/* Header */}
+            <header className="sticky top-0 z-50 bg-[#0A0A0A]/95 backdrop-blur border-b border-[#333] px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Settings size={24} className="text-[#FF1E1E]" />
+                    <span className="font-bold text-lg">Admin</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[#A0A0A0] text-sm hidden sm:inline">{username}</span>
+                    <Link to="/"><Button variant="outline" size="sm" className="border-[#333] text-white hover:bg-[#1A1A1A]"><Trophy size={14} className="mr-1" /> Live</Button></Link>
+                    <Button variant="outline" size="sm" className="border-[#333] text-white hover:bg-[#1A1A1A]" onClick={() => { logout(); navigate('/admin'); }}><LogOut size={14} /></Button>
+                </div>
+            </header>
+            
+            {/* Status & Timer */}
+            {eventStatus && (
+                <div className="border-b border-[#333]">
+                    <StatusBanner status={eventStatus.status} message={eventStatus.message} design={design} />
+                    {eventStatus.timer_enabled && eventStatus.timer_end_time && eventStatus.status === 'active' && (
+                        <div className="py-2 flex justify-center bg-[#1A1A1A]">
+                            <TimerDisplay endTime={eventStatus.timer_end_time} onExpire={fetchData} />
+                        </div>
+                    )}
+                </div>
+            )}
+            
+            <main className="p-4 max-w-6xl mx-auto">
+                {/* Quick Actions */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                    <Button onClick={() => setActiveDialog('design')} variant="outline" size="sm" className="border-[#333] hover:border-[#FF1E1E] hover:bg-[#FF1E1E]/10"><Palette size={14} className="mr-1" /> Design</Button>
+                    <Button onClick={() => setActiveDialog('event')} variant="outline" size="sm" className="border-[#333] hover:border-[#FF1E1E] hover:bg-[#FF1E1E]/10"><Calendar size={14} className="mr-1" /> Event</Button>
+                    <Button onClick={() => setActiveDialog('tracks')} variant="outline" size="sm" className="border-[#333] hover:border-[#FF1E1E] hover:bg-[#FF1E1E]/10"><MapPin size={14} className="mr-1" /> Strecken</Button>
+                    <Button onClick={() => setActiveDialog('email')} variant="outline" size="sm" className="border-[#333] hover:border-[#FF1E1E] hover:bg-[#FF1E1E]/10"><Mail size={14} className="mr-1" /> E-Mail</Button>
+                    <Button onClick={() => setActiveDialog('participants')} variant="outline" size="sm" className="border-[#333] hover:border-[#FF1E1E] hover:bg-[#FF1E1E]/10"><Users size={14} className="mr-1" /> Teilnehmer ({participants.length})</Button>
+                    <Button onClick={() => setActiveDialog('password')} variant="outline" size="sm" className="border-[#333] hover:border-[#FF1E1E] hover:bg-[#FF1E1E]/10"><Key size={14} className="mr-1" /> Passwort</Button>
+                    <Button onClick={handleExportCSV} variant="outline" size="sm" className="border-[#333]" disabled={entries.length === 0}><FileText size={14} className="mr-1" /> CSV</Button>
+                </div>
                 
-                {/* Header */}
-                <header className="header">
-                    <div className="header-title">
-                        <Settings size={24} className="text-[var(--primary-red)]" />
-                        Admin Panel
+                {/* Add Entry Form */}
+                <div className="bg-[#1A1A1A] rounded-xl border border-[#333] p-4 mb-4">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="font-bold flex items-center gap-2"><Plus size={18} className="text-[#FF1E1E]" /> Rundenzeit</h2>
+                        <div className="flex items-center gap-3 text-sm text-[#A0A0A0]">
+                            <div className="flex items-center gap-1" title="Team anzeigen">
+                                <User size={14} /><Switch checked={showTeam} onCheckedChange={setShowTeam} /><Users size={14} />
+                            </div>
+                            <div className="flex items-center gap-1" title="E-Mail für Ergebnis">
+                                <Mail size={14} className={showEmail ? "text-[#FF1E1E]" : ""} /><Switch checked={showEmail} onCheckedChange={setShowEmail} />
+                            </div>
+                        </div>
+                    </div>
+                    <form onSubmit={handleAddEntry} className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Fahrername *" className="bg-[#0A0A0A] border-[#333]" />
+                            {showTeam && <Input value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Team (optional)" className="bg-[#0A0A0A] border-[#333]" />}
+                            <Input value={lapTime} onChange={(e) => setLapTime(e.target.value)} placeholder="1:23.456 *" className="bg-[#0A0A0A] border-[#333] font-mono" />
+                            <Button type="submit" className="bg-[#FF1E1E] hover:bg-[#D61A1A]" disabled={isSubmitting}>
+                                {isSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <><Plus size={16} className="mr-1" /> Hinzufügen</>}
+                            </Button>
+                        </div>
+                        {showEmail && (
+                            <Input type="email" value={driverEmail} onChange={(e) => setDriverEmail(e.target.value)} placeholder="E-Mail für Ergebnis-Benachrichtigung (optional)" className="bg-[#0A0A0A] border-[#333]" />
+                        )}
+                    </form>
+                </div>
+                
+                {/* Entries List */}
+                <div className="bg-[#1A1A1A] rounded-xl border border-[#333] p-4">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="font-bold flex items-center gap-2"><Trophy size={18} className="text-[#FFD700]" /> Rangliste ({entries.length})</h2>
+                        {entries.length > 0 && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild><Button variant="outline" size="sm" className="border-[#333] text-[#FF1E1E]"><Trash2 size={14} className="mr-1" /> Alle</Button></AlertDialogTrigger>
+                                <AlertDialogContent className="bg-[#1A1A1A] border-[#333]">
+                                    <AlertDialogHeader><AlertDialogTitle>Alle löschen?</AlertDialogTitle></AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel className="border-[#333]">Abbrechen</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDeleteAll} className="bg-[#FF1E1E]">Löschen</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
                     </div>
                     
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-[var(--text-secondary)] text-sm hidden sm:inline">
-                            Angemeldet als <span className="text-white">{username}</span>
-                        </span>
-                        <Link to="/">
-                            <Button className="btn-secondary" size="sm">
-                                <Trophy size={16} className="mr-2" /> Rangliste
-                            </Button>
-                        </Link>
-                        <Button onClick={handleLogout} className="btn-secondary" size="sm" data-testid="logout-btn">
-                            <LogOut size={16} className="mr-2" /> Logout
-                        </Button>
-                    </div>
-                </header>
-                
-                {/* Status Banner */}
-                {eventStatus && <StatusBanner status={eventStatus.status} message={eventStatus.message} />}
-                
-                <main className="main-content">
-                    {/* Event Settings */}
-                    <div className="event-settings">
-                        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                            <h2 className="admin-title mb-0">
-                                <Calendar size={20} className="text-[var(--primary-red)]" />
-                                Event Einstellungen
-                            </h2>
-                            <Button onClick={() => {
-                                setSelectedStatus(eventStatus?.status || 'inactive');
-                                setSelectedTrack(eventStatus?.track_id || '');
-                                setScheduledDate(eventStatus?.scheduled_date || '');
-                                setScheduledTime(eventStatus?.scheduled_time || '');
-                                setEventSettingsOpen(true);
-                            }} className="btn-secondary" size="sm" data-testid="event-settings-btn">
-                                <Edit2 size={16} className="mr-2" /> Bearbeiten
-                            </Button>
-                        </div>
-                        
-                        <div className="event-grid">
-                            <div className="form-field">
-                                <span className="form-label">Status</span>
-                                <span className="text-white capitalize">{eventStatus?.status || 'Inaktiv'}</span>
-                            </div>
-                            <div className="form-field">
-                                <span className="form-label">Strecke</span>
-                                <span className="text-white">{eventStatus?.track_name || '-'}</span>
-                            </div>
-                            {eventStatus?.scheduled_date && (
-                                <div className="form-field">
-                                    <span className="form-label">Geplant</span>
-                                    <span className="text-white">{eventStatus.scheduled_date} {eventStatus.scheduled_time}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    
-                    {/* Add Entry Form */}
-                    <div className="admin-panel">
-                        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                            <h2 className="admin-title mb-0">
-                                <Plus size={20} className="text-[var(--primary-red)]" />
-                                Rundenzeit eintragen
-                            </h2>
-                            <div className="flex items-center gap-2 text-sm">
-                                <User size={14} className="text-[var(--text-secondary)]" />
-                                <span className="text-[var(--text-secondary)]">Team</span>
-                                <Switch checked={showTeam} onCheckedChange={setShowTeam} data-testid="team-toggle" />
-                            </div>
-                        </div>
-                        
-                        <form onSubmit={handleAddEntry} className="admin-form">
-                            <div className="form-field">
-                                <Label className="form-label">Fahrername</Label>
-                                <Input
-                                    type="text"
-                                    value={driverName}
-                                    onChange={(e) => setDriverName(e.target.value)}
-                                    placeholder="Max Verstappen"
-                                    className="input-racing"
-                                    data-testid="driver-name-input"
-                                />
-                            </div>
-                            
-                            {showTeam && (
-                                <div className="form-field">
-                                    <Label className="form-label">Team (optional)</Label>
-                                    <Input
-                                        type="text"
-                                        value={team}
-                                        onChange={(e) => setTeam(e.target.value)}
-                                        placeholder="Red Bull Racing"
-                                        className="input-racing"
-                                        data-testid="team-input"
-                                    />
-                                </div>
-                            )}
-                            
-                            <div className="form-field">
-                                <Label className="form-label">Zeit (MM:SS.mmm)</Label>
-                                <Input
-                                    type="text"
-                                    value={lapTime}
-                                    onChange={(e) => setLapTime(e.target.value)}
-                                    placeholder="1:23.456"
-                                    className="input-racing input-time"
-                                    data-testid="lap-time-input"
-                                />
-                            </div>
-                            
-                            <Button type="submit" className="btn-primary h-10 px-4" disabled={isSubmitting} data-testid="add-lap-btn">
-                                {isSubmitting ? <RefreshCw size={18} className="animate-spin" /> : <><Plus size={18} className="mr-1" /> Hinzufügen</>}
-                            </Button>
-                        </form>
-                    </div>
-                    
-                    {/* Entries List */}
-                    <div className="admin-panel">
-                        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                            <h2 className="admin-title mb-0">
-                                <Trophy size={20} className="text-[var(--accent-gold)]" />
-                                Einträge ({entries.length})
-                            </h2>
-                            
-                            <div className="quick-actions">
-                                <Button onClick={() => setTrackDialogOpen(true)} className="btn-secondary" size="sm" data-testid="manage-tracks-btn">
-                                    <MapPin size={14} className="mr-1" /> Strecken
-                                </Button>
-                                {entries.length > 0 && (
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button className="btn-secondary text-[var(--primary-red)]" size="sm" data-testid="delete-all-btn">
-                                                <Trash2 size={14} className="mr-1" /> Alle löschen
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent className="bg-[var(--bg-surface)] border-[var(--border-default)]">
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle className="text-white font-heading">Alle löschen?</AlertDialogTitle>
-                                                <AlertDialogDescription className="text-[var(--text-secondary)]">
-                                                    Alle Rundenzeiten werden unwiderruflich gelöscht.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel className="btn-secondary">Abbrechen</AlertDialogCancel>
-                                                <AlertDialogAction onClick={handleDeleteAll} className="btn-primary" data-testid="confirm-delete-all-btn">
-                                                    Löschen
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                )}
-                            </div>
-                        </div>
-                        
-                        {entries.length === 0 ? (
-                            <div className="empty-state">
-                                <Timer size={48} className="mx-auto mb-3 text-[var(--text-muted)]" />
-                                <p className="empty-state-text">Keine Einträge</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {entries.map((entry) => (
-                                    <div 
-                                        key={entry.id}
-                                        className={`leaderboard-entry ${entry.rank <= 3 ? `top-${entry.rank}` : ''}`}
-                                        data-testid={`entry-row-${entry.id}`}
-                                    >
-                                        <RankBadge rank={entry.rank} />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-heading text-white truncate">{entry.driver_name}</div>
-                                            {entry.team && <div className="text-[var(--text-secondary)] text-sm truncate">{entry.team}</div>}
-                                        </div>
-                                        <div className="font-mono text-[var(--accent-neon)] text-lg">{entry.lap_time_display}</div>
-                                        <div className="font-mono text-[var(--text-secondary)] text-sm w-20 text-right">{entry.gap}</div>
-                                        <div className="flex gap-1">
-                                            <button onClick={() => { setEditEntry({...entry}); setEditDialogOpen(true); }}
-                                                className="p-2 text-[var(--text-secondary)] hover:text-white transition-colors"
-                                                data-testid={`edit-btn-${entry.id}`}>
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <button className="p-2 text-[var(--text-secondary)] hover:text-[var(--primary-red)] transition-colors"
-                                                        data-testid={`delete-btn-${entry.id}`}>
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent className="bg-[var(--bg-surface)] border-[var(--border-default)]">
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle className="text-white font-heading">Löschen?</AlertDialogTitle>
-                                                        <AlertDialogDescription className="text-[var(--text-secondary)]">
-                                                            {entry.driver_name} wirklich löschen?
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel className="btn-secondary">Abbrechen</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteEntry(entry.id)} className="btn-primary">
-                                                            Löschen
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </div>
+                    {entries.length === 0 ? (
+                        <div className="text-center py-8 text-[#A0A0A0]"><Timer size={48} className="mx-auto mb-3 opacity-50" /><p>Keine Einträge</p></div>
+                    ) : (
+                        <div className="space-y-2">
+                            {entries.map(entry => (
+                                <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg bg-[#0A0A0A]/50 border border-[#333]/50 hover:border-[#333]">
+                                    <RankBadge rank={entry.rank} design={design} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-bold truncate">{entry.driver_name}</div>
+                                        {entry.team && <div className="text-sm text-[#A0A0A0] truncate">{entry.team}</div>}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </main>
-                
-                {/* Edit Entry Dialog */}
-                <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-                    <DialogContent className="bg-[var(--bg-surface)] border-[var(--border-default)]">
-                        <DialogHeader>
-                            <DialogTitle className="text-white font-heading">Eintrag bearbeiten</DialogTitle>
-                        </DialogHeader>
-                        {editEntry && (
-                            <div className="space-y-4 py-4">
-                                <div className="form-field">
-                                    <Label className="form-label">Fahrername</Label>
-                                    <Input value={editEntry.driver_name} onChange={(e) => setEditEntry({...editEntry, driver_name: e.target.value})}
-                                        className="input-racing" data-testid="edit-driver-input" />
+                                    <div className="font-mono text-[#00F0FF]">{entry.lap_time_display}</div>
+                                    <div className="font-mono text-sm text-[#A0A0A0] w-20 text-right">{entry.gap}</div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => { setEditEntry({...entry}); setActiveDialog('editEntry'); }} className="p-2 text-[#A0A0A0] hover:text-white"><Edit2 size={14} /></button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild><button className="p-2 text-[#A0A0A0] hover:text-[#FF1E1E]"><Trash2 size={14} /></button></AlertDialogTrigger>
+                                            <AlertDialogContent className="bg-[#1A1A1A] border-[#333]">
+                                                <AlertDialogHeader><AlertDialogTitle>Löschen?</AlertDialogTitle></AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel className="border-[#333]">Nein</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteEntry(entry.id)} className="bg-[#FF1E1E]">Ja</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
                                 </div>
-                                <div className="form-field">
-                                    <Label className="form-label">Team</Label>
-                                    <Input value={editEntry.team || ''} onChange={(e) => setEditEntry({...editEntry, team: e.target.value})}
-                                        className="input-racing" data-testid="edit-team-input" />
-                                </div>
-                                <div className="form-field">
-                                    <Label className="form-label">Zeit</Label>
-                                    <Input value={editEntry.lap_time_display} onChange={(e) => setEditEntry({...editEntry, lap_time_display: e.target.value})}
-                                        className="input-racing input-time" data-testid="edit-time-input" />
-                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </main>
+            
+            {/* DIALOGS */}
+            
+            {/* Design Dialog */}
+            <Dialog open={activeDialog === 'design'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333] max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader><DialogTitle><Palette size={18} className="inline mr-2" />Design anpassen</DialogTitle></DialogHeader>
+                    {design && <DesignEditor design={design} onSave={handleSaveDesign} onClose={() => setActiveDialog(null)} />}
+                </DialogContent>
+            </Dialog>
+            
+            {/* Event Dialog */}
+            <Dialog open={activeDialog === 'event'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333]">
+                    <DialogHeader>
+                        <DialogTitle><Calendar size={18} className="inline mr-2" />Event Einstellungen</DialogTitle>
+                        <DialogDescription>Verwalte den Status und die Strecke für das aktuelle Rennen</DialogDescription>
+                    </DialogHeader>
+                    {eventStatus && <EventEditor event={eventStatus} tracks={tracks} onSave={handleSaveEvent} />}
+                </DialogContent>
+            </Dialog>
+            
+            {/* Tracks Dialog */}
+            <Dialog open={activeDialog === 'tracks'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333]">
+                    <DialogHeader><DialogTitle><MapPin size={18} className="inline mr-2" />Strecken verwalten</DialogTitle></DialogHeader>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-2">
+                            <Input value={newTrackName} onChange={(e) => setNewTrackName(e.target.value)} placeholder="Streckenname *" className="bg-[#0A0A0A] border-[#333]" />
+                            <Input value={newTrackCountry} onChange={(e) => setNewTrackCountry(e.target.value)} placeholder="Land *" className="bg-[#0A0A0A] border-[#333]" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[#A0A0A0] text-xs">Streckenbild</Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    value={newTrackImage} 
+                                    onChange={(e) => setNewTrackImage(e.target.value)} 
+                                    placeholder="Bild-URL oder hochladen →" 
+                                    className="bg-[#0A0A0A] border-[#333] flex-1" 
+                                />
+                                <label className="cursor-pointer">
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const url = await handleUploadImage(file);
+                                                if (url) setNewTrackImage(url);
+                                            }
+                                        }}
+                                    />
+                                    <Button type="button" variant="outline" className="border-[#333]" disabled={uploadingImage}>
+                                        {uploadingImage ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                                    </Button>
+                                </label>
                             </div>
-                        )}
-                        <DialogFooter>
-                            <Button onClick={() => setEditDialogOpen(false)} className="btn-secondary">Abbrechen</Button>
-                            <Button onClick={handleUpdateEntry} className="btn-primary" data-testid="save-edit-btn">
-                                <Check size={16} className="mr-2" /> Speichern
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-                
-                {/* Track Management Dialog */}
-                <Dialog open={trackDialogOpen} onOpenChange={setTrackDialogOpen}>
-                    <DialogContent className="bg-[var(--bg-surface)] border-[var(--border-default)]">
-                        <DialogHeader>
-                            <DialogTitle className="text-white font-heading">Strecken verwalten</DialogTitle>
-                            <DialogDescription className="text-[var(--text-secondary)]">Füge neue Strecken hinzu oder lösche bestehende</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="grid grid-cols-2 gap-2">
-                                <Input value={newTrackName} onChange={(e) => setNewTrackName(e.target.value)}
-                                    placeholder="Streckenname" className="input-racing" data-testid="track-name-input" />
-                                <Input value={newTrackCountry} onChange={(e) => setNewTrackCountry(e.target.value)}
-                                    placeholder="Land" className="input-racing" data-testid="track-country-input" />
-                            </div>
-                            <Button onClick={handleAddTrack} className="btn-primary w-full" data-testid="add-track-btn">
-                                <Plus size={16} className="mr-2" /> Strecke hinzufügen
-                            </Button>
-                            
-                            {tracks.length > 0 && (
-                                <div className="space-y-2 mt-4">
-                                    <Label className="form-label">Vorhandene Strecken</Label>
-                                    {tracks.map(track => (
-                                        <div key={track.id} className="track-item">
-                                            <span className="text-white">{track.name}, {track.country}</span>
-                                            <button onClick={() => handleDeleteTrack(track.id)}
-                                                className="text-[var(--text-secondary)] hover:text-[var(--primary-red)] transition-colors">
-                                                <X size={16} />
-                                            </button>
+                            {newTrackImage && (
+                                <div className="relative w-full h-24 rounded overflow-hidden border border-[#333]">
+                                    <img src={newTrackImage.startsWith('/api') ? newTrackImage : newTrackImage} alt="Vorschau" className="w-full h-full object-cover" />
+                                    <button onClick={() => setNewTrackImage("")} className="absolute top-1 right-1 p-1 bg-black/50 rounded"><X size={12} /></button>
+                                </div>
+                            )}
+                        </div>
+                        <Button onClick={handleAddTrack} className="w-full bg-[#FF1E1E]" disabled={!newTrackName.trim() || !newTrackCountry.trim()}>
+                            <Plus size={14} className="mr-1" /> Strecke hinzufügen
+                        </Button>
+                        
+                        {tracks.length > 0 && (
+                            <div className="border-t border-[#333] pt-4">
+                                <Label className="text-[#A0A0A0] text-xs mb-2 block">Vorhandene Strecken</Label>
+                                <div className="space-y-2 max-h-48 overflow-auto">
+                                    {tracks.map(t => (
+                                        <div key={t.id} className="flex items-center justify-between p-2 bg-[#0A0A0A] rounded border border-[#333]">
+                                            <div className="flex items-center gap-3">
+                                                {t.image_url ? (
+                                                    <img src={t.image_url} alt="" className="w-12 h-8 object-cover rounded" />
+                                                ) : (
+                                                    <div className="w-12 h-8 bg-[#333] rounded flex items-center justify-center"><Image size={14} className="text-[#666]" /></div>
+                                                )}
+                                                <div>
+                                                    <div className="font-medium">{t.name}</div>
+                                                    <div className="text-xs text-[#A0A0A0]">{t.country}</div>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => handleDeleteTrack(t.id)} className="text-[#A0A0A0] hover:text-[#FF1E1E] p-1"><Trash2 size={14} /></button>
                                         </div>
                                     ))}
                                 </div>
-                            )}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Email Dialog */}
+            <Dialog open={activeDialog === 'email'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333] max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader><DialogTitle><Mail size={18} className="inline mr-2" />E-Mail Einstellungen</DialogTitle></DialogHeader>
+                    <EmailEditor 
+                        smtp={smtpSettings} 
+                        template={emailTemplate} 
+                        adminEmail={adminProfile?.email}
+                        onSaveSmtp={handleSaveSmtp}
+                        onTestSmtp={handleTestSmtp}
+                        onSaveTemplate={handleSaveEmailTemplate}
+                        onPreview={handlePreviewEmail}
+                        preview={emailPreview}
+                        onSendAll={handleSendEmails}
+                        participantCount={participants.length}
+                    />
+                </DialogContent>
+            </Dialog>
+            
+            {/* Participants Dialog */}
+            <Dialog open={activeDialog === 'participants'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333]">
+                    <DialogHeader><DialogTitle><Users size={18} className="inline mr-2" />Teilnehmer</DialogTitle>
+                        <DialogDescription>E-Mail-Empfänger für Ergebnisse</DialogDescription></DialogHeader>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-2">
+                            <Input value={newParticipantName} onChange={(e) => setNewParticipantName(e.target.value)} placeholder="Name" className="bg-[#0A0A0A] border-[#333]" />
+                            <Input type="email" value={newParticipantEmail} onChange={(e) => setNewParticipantEmail(e.target.value)} placeholder="E-Mail" className="bg-[#0A0A0A] border-[#333]" />
                         </div>
-                    </DialogContent>
-                </Dialog>
-                
-                {/* Event Settings Dialog */}
-                <Dialog open={eventSettingsOpen} onOpenChange={setEventSettingsOpen}>
-                    <DialogContent className="bg-[var(--bg-surface)] border-[var(--border-default)]">
-                        <DialogHeader>
-                            <DialogTitle className="text-white font-heading">Event Einstellungen</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="form-field">
-                                <Label className="form-label">Status</Label>
-                                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                                    <SelectTrigger className="input-racing" data-testid="event-status-select">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-[var(--bg-surface)] border-[var(--border-default)]">
-                                        <SelectItem value="inactive">Kein Rennen</SelectItem>
-                                        <SelectItem value="scheduled">Geplant</SelectItem>
-                                        <SelectItem value="active">Läuft</SelectItem>
-                                        <SelectItem value="finished">Abgeschlossen</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            
-                            <div className="form-field">
-                                <Label className="form-label">Strecke</Label>
-                                <Select value={selectedTrack} onValueChange={setSelectedTrack}>
-                                    <SelectTrigger className="input-racing" data-testid="event-track-select">
-                                        <SelectValue placeholder="Strecke wählen..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-[var(--bg-surface)] border-[var(--border-default)]">
-                                        <SelectItem value="">Keine</SelectItem>
-                                        {tracks.map(track => (
-                                            <SelectItem key={track.id} value={track.id}>{track.name}, {track.country}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            
-                            {selectedStatus === 'scheduled' && (
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="form-field">
-                                        <Label className="form-label">Datum</Label>
-                                        <Input type="text" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)}
-                                            placeholder="01.02.2026" className="input-racing" data-testid="event-date-input" />
-                                    </div>
-                                    <div className="form-field">
-                                        <Label className="form-label">Uhrzeit</Label>
-                                        <Input type="text" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)}
-                                            placeholder="18:00" className="input-racing" data-testid="event-time-input" />
-                                    </div>
+                        <Button onClick={handleAddParticipant} className="w-full bg-[#FF1E1E]"><UserPlus size={14} className="mr-1" /> Hinzufügen</Button>
+                        <div className="space-y-2 max-h-60 overflow-auto">
+                            {participants.map(p => (
+                                <div key={p.id} className="flex items-center justify-between p-2 bg-[#0A0A0A] rounded border border-[#333]">
+                                    <div><div className="font-medium">{p.name}</div><div className="text-sm text-[#A0A0A0]">{p.email}</div></div>
+                                    <button onClick={() => handleDeleteParticipant(p.id)} className="text-[#A0A0A0] hover:text-[#FF1E1E]"><X size={14} /></button>
                                 </div>
-                            )}
+                            ))}
                         </div>
-                        <DialogFooter>
-                            <Button onClick={() => setEventSettingsOpen(false)} className="btn-secondary">Abbrechen</Button>
-                            <Button onClick={handleUpdateEvent} className="btn-primary" data-testid="save-event-btn">
-                                <Check size={16} className="mr-2" /> Speichern
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Password Dialog */}
+            <Dialog open={activeDialog === 'password'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333]">
+                    <DialogHeader><DialogTitle><Key size={18} className="inline mr-2" />Passwort ändern</DialogTitle></DialogHeader>
+                    <div className="space-y-4">
+                        <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Aktuelles Passwort" className="bg-[#0A0A0A] border-[#333]" />
+                        <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Neues Passwort" className="bg-[#0A0A0A] border-[#333]" />
+                        <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Bestätigen" className="bg-[#0A0A0A] border-[#333]" />
+                        <Button onClick={() => handleChangePassword(false)} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Ändern</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Force Password Change Dialog (First Login) */}
+            <Dialog open={activeDialog === 'forcePassword'} onOpenChange={() => {}}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333]" onPointerDownOutside={(e) => e.preventDefault()}>
+                    <DialogHeader>
+                        <DialogTitle className="text-[#FF1E1E]"><Key size={18} className="inline mr-2" />Passwort ändern erforderlich!</DialogTitle>
+                        <DialogDescription>
+                            Bitte ändern Sie das Standard-Passwort für mehr Sicherheit.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <Label className="text-[#A0A0A0] text-xs">Aktuelles Passwort (Standard: admin)</Label>
+                            <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="admin" className="bg-[#0A0A0A] border-[#333]" />
+                        </div>
+                        <div>
+                            <Label className="text-[#A0A0A0] text-xs">Neues Passwort</Label>
+                            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Mindestens 4 Zeichen" className="bg-[#0A0A0A] border-[#333]" />
+                        </div>
+                        <div>
+                            <Label className="text-[#A0A0A0] text-xs">Passwort bestätigen</Label>
+                            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Wiederholen" className="bg-[#0A0A0A] border-[#333]" />
+                        </div>
+                        <Button onClick={() => handleChangePassword(true)} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Passwort ändern</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Edit Entry Dialog */}
+            <Dialog open={activeDialog === 'editEntry'} onOpenChange={(open) => { if (!open) { setActiveDialog(null); setEditEntry(null); } }}>
+                <DialogContent className="bg-[#1A1A1A] border-[#333]">
+                    <DialogHeader><DialogTitle>Eintrag bearbeiten</DialogTitle></DialogHeader>
+                    {editEntry && (
+                        <div className="space-y-4">
+                            <Input value={editEntry.driver_name} onChange={(e) => setEditEntry({...editEntry, driver_name: e.target.value})} className="bg-[#0A0A0A] border-[#333]" />
+                            <Input value={editEntry.team || ''} onChange={(e) => setEditEntry({...editEntry, team: e.target.value})} placeholder="Team" className="bg-[#0A0A0A] border-[#333]" />
+                            <Input value={editEntry.lap_time_display} onChange={(e) => setEditEntry({...editEntry, lap_time_display: e.target.value})} className="bg-[#0A0A0A] border-[#333] font-mono" />
+                            <Button onClick={handleUpdateEntry} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
 
-// ==================== MAIN APP ====================
+// Design Editor Component
+const DesignEditor = ({ design, onSave, onClose }) => {
+    const [d, setD] = useState(design);
+    
+    const ColorInput = ({ label, value, onChange }) => (
+        <div className="flex items-center gap-2">
+            <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0" />
+            <span className="text-sm text-[#A0A0A0] flex-1">{label}</span>
+            <Input value={value} onChange={(e) => onChange(e.target.value)} className="w-24 bg-[#0A0A0A] border-[#333] text-xs font-mono" />
+        </div>
+    );
+    
+    return (
+        <Tabs defaultValue="title" className="mt-4">
+            <TabsList className="grid grid-cols-5 bg-[#0A0A0A]">
+                <TabsTrigger value="title">Titel</TabsTrigger>
+                <TabsTrigger value="colors">Farben</TabsTrigger>
+                <TabsTrigger value="fonts">Schriften</TabsTrigger>
+                <TabsTrigger value="bg">Hintergrund</TabsTrigger>
+                <TabsTrigger value="site">Website</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="title" className="space-y-4 mt-4">
+                <div className="p-4 rounded bg-[#0A0A0A] text-center">
+                    <span style={{ fontFamily: d.title_font, fontSize: '1.5rem' }}>
+                        <span style={{ color: d.title_color1 }}>{d.title_line1} </span>
+                        <span style={{ color: d.title_color2 }}>{d.title_line2} </span>
+                        <span style={{ color: d.title_color3 }}>{d.title_line3}</span>
+                    </span>
+                </div>
+                {['title_line1', 'title_line2', 'title_line3'].map((key, i) => (
+                    <div key={key} className="grid grid-cols-[1fr_auto] gap-2">
+                        <Input value={d[key]} onChange={(e) => setD({...d, [key]: e.target.value})} className="bg-[#0A0A0A] border-[#333]" />
+                        <input type="color" value={d[`title_color${i+1}`]} onChange={(e) => setD({...d, [`title_color${i+1}`]: e.target.value})} className="w-10 h-10 rounded cursor-pointer" />
+                    </div>
+                ))}
+            </TabsContent>
+            
+            <TabsContent value="colors" className="space-y-3 mt-4">
+                <ColorInput label="Primärfarbe" value={d.primary_color} onChange={(v) => setD({...d, primary_color: v})} />
+                <ColorInput label="Akzentfarbe (Zeiten)" value={d.accent_color} onChange={(v) => setD({...d, accent_color: v})} />
+                <ColorInput label="Text" value={d.text_color} onChange={(v) => setD({...d, text_color: v})} />
+                <ColorInput label="Text sekundär" value={d.text_secondary} onChange={(v) => setD({...d, text_secondary: v})} />
+                <ColorInput label="Hintergrund" value={d.bg_color} onChange={(v) => setD({...d, bg_color: v})} />
+                <ColorInput label="Oberfläche" value={d.surface_color} onChange={(v) => setD({...d, surface_color: v})} />
+                <hr className="border-[#333]" />
+                <ColorInput label="Gold (1. Platz)" value={d.gold_color} onChange={(v) => setD({...d, gold_color: v})} />
+                <ColorInput label="Silber (2. Platz)" value={d.silver_color} onChange={(v) => setD({...d, silver_color: v})} />
+                <ColorInput label="Bronze (3. Platz)" value={d.bronze_color} onChange={(v) => setD({...d, bronze_color: v})} />
+            </TabsContent>
+            
+            <TabsContent value="fonts" className="space-y-4 mt-4">
+                {[
+                    { key: 'heading_font', label: 'Überschriften' },
+                    { key: 'body_font', label: 'Text' },
+                    { key: 'time_font', label: 'Zeiten' },
+                    { key: 'title_font', label: 'Titel' }
+                ].map(({ key, label }) => (
+                    <div key={key}>
+                        <Label className="text-[#A0A0A0] text-xs">{label}</Label>
+                        <Select value={d[key]} onValueChange={(v) => setD({...d, [key]: v})}>
+                            <SelectTrigger className="bg-[#0A0A0A] border-[#333]"><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-[#1A1A1A] border-[#333]">
+                                {['Russo One', 'Barlow', 'JetBrains Mono', 'Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Verdana', 'Impact'].map(f => (
+                                    <SelectItem key={f} value={f} style={{ fontFamily: f }}>{f}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                ))}
+            </TabsContent>
+            
+            <TabsContent value="bg" className="space-y-4 mt-4">
+                <div><Label className="text-[#A0A0A0] text-xs">Hintergrundbild URL</Label>
+                    <Input value={d.bg_image_url} onChange={(e) => setD({...d, bg_image_url: e.target.value})} placeholder="https://..." className="bg-[#0A0A0A] border-[#333]" /></div>
+                <div><Label className="text-[#A0A0A0] text-xs">Overlay Transparenz: {d.bg_overlay_opacity}</Label>
+                    <input type="range" min="0" max="1" step="0.05" value={d.bg_overlay_opacity} onChange={(e) => setD({...d, bg_overlay_opacity: parseFloat(e.target.value)})} className="w-full" /></div>
+            </TabsContent>
+            
+            <TabsContent value="site" className="space-y-4 mt-4">
+                <div className="p-3 bg-[#0A0A0A] rounded border border-[#333]">
+                    <p className="text-sm text-[#A0A0A0] mb-2">🌐 Browser-Tab Einstellungen</p>
+                </div>
+                <div>
+                    <Label className="text-[#A0A0A0] text-xs">Tab-Titel (Browser)</Label>
+                    <Input value={d.site_title || ''} onChange={(e) => setD({...d, site_title: e.target.value})} placeholder="F1 Fast Lap Challenge" className="bg-[#0A0A0A] border-[#333]" />
+                </div>
+                <div>
+                    <Label className="text-[#A0A0A0] text-xs">Favicon URL (Icon im Browser-Tab)</Label>
+                    <Input value={d.favicon_url || ''} onChange={(e) => setD({...d, favicon_url: e.target.value})} placeholder="https://example.com/favicon.ico" className="bg-[#0A0A0A] border-[#333]" />
+                    {d.favicon_url && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <img src={d.favicon_url} alt="Favicon preview" className="w-8 h-8 object-contain rounded border border-[#333]" onError={(e) => e.target.style.display = 'none'} />
+                            <span className="text-xs text-[#A0A0A0]">Vorschau</span>
+                        </div>
+                    )}
+                </div>
+            </TabsContent>
+            
+            <div className="flex gap-2 mt-6">
+                <Button onClick={onClose} variant="outline" className="flex-1 border-[#333]">Abbrechen</Button>
+                <Button onClick={() => { onSave(d); onClose(); }} className="flex-1 bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
+            </div>
+        </Tabs>
+    );
+};
+
+// Event Editor Component
+const EventEditor = ({ event, tracks, onSave }) => {
+    const [e, setE] = useState({
+        status: event.status,
+        track_id: event.track?.id || '',
+        scheduled_date: event.scheduled_date || '',
+        scheduled_time: event.scheduled_time || '',
+        timer_enabled: event.timer_enabled || false,
+        timer_duration_minutes: event.timer_duration_minutes || 60
+    });
+    
+    const statusColors = {
+        inactive: '#525252',
+        scheduled: '#FFA500',
+        active: '#00FF00',
+        finished: '#FF1E1E'
+    };
+    
+    return (
+        <div className="space-y-4 mt-4">
+            {/* Current Status Info */}
+            <div className="p-3 rounded bg-[#0A0A0A] border border-[#333] flex items-center justify-between">
+                <span className="text-[#A0A0A0]">Aktueller Status:</span>
+                <span className="font-bold" style={{ color: statusColors[e.status] }}>
+                    {e.status === 'inactive' && '⚫ Kein Rennen'}
+                    {e.status === 'scheduled' && '🟡 Geplant'}
+                    {e.status === 'active' && '🟢 Läuft'}
+                    {e.status === 'finished' && '🔴 Abgeschlossen'}
+                </span>
+            </div>
+            
+            <div><Label className="text-[#A0A0A0] text-xs">Status ändern</Label>
+                <Select value={e.status} onValueChange={(v) => setE({...e, status: v})}>
+                    <SelectTrigger className="bg-[#0A0A0A] border-[#333]"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-[#1A1A1A] border-[#333]">
+                        <SelectItem value="inactive">⚫ Kein Rennen</SelectItem>
+                        <SelectItem value="scheduled">🟡 Geplant</SelectItem>
+                        <SelectItem value="active">🟢 Läuft</SelectItem>
+                        <SelectItem value="finished">🔴 Abgeschlossen</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            
+            <div><Label className="text-[#A0A0A0] text-xs">Strecke auswählen</Label>
+                {tracks.length === 0 ? (
+                    <p className="text-sm text-[#666] italic p-2 bg-[#0A0A0A] rounded border border-[#333]">
+                        Keine Strecken vorhanden. Erstelle zuerst eine Strecke unter "Strecken".
+                    </p>
+                ) : (
+                    <Select value={e.track_id} onValueChange={(v) => setE({...e, track_id: v})}>
+                        <SelectTrigger className="bg-[#0A0A0A] border-[#333]"><SelectValue placeholder="Strecke wählen..." /></SelectTrigger>
+                        <SelectContent className="bg-[#1A1A1A] border-[#333]">
+                            <SelectItem value="">Keine Strecke</SelectItem>
+                            {tracks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}, {t.country}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                )}
+            </div>
+            
+            {e.status === 'scheduled' && (
+                <div className="grid grid-cols-2 gap-2">
+                    <div><Label className="text-[#A0A0A0] text-xs">Datum</Label>
+                        <Input value={e.scheduled_date} onChange={(ev) => setE({...e, scheduled_date: ev.target.value})} placeholder="01.02.2026" className="bg-[#0A0A0A] border-[#333]" /></div>
+                    <div><Label className="text-[#A0A0A0] text-xs">Uhrzeit</Label>
+                        <Input value={e.scheduled_time} onChange={(ev) => setE({...e, scheduled_time: ev.target.value})} placeholder="18:00" className="bg-[#0A0A0A] border-[#333]" /></div>
+                </div>
+            )}
+            
+            {e.status === 'active' && (
+                <div className="p-3 bg-[#0A0A0A] rounded border border-[#333]">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2"><Clock size={16} className="text-[#A0A0A0]" /><span>Countdown-Timer</span></div>
+                        <Switch checked={e.timer_enabled} onCheckedChange={(v) => setE({...e, timer_enabled: v})} />
+                    </div>
+                    {e.timer_enabled && (
+                        <div className="mt-3"><Label className="text-[#A0A0A0] text-xs">Dauer (Minuten)</Label>
+                            <Input type="number" value={e.timer_duration_minutes} onChange={(ev) => setE({...e, timer_duration_minutes: parseInt(ev.target.value) || 60})} min={1} max={999} className="bg-[#1A1A1A] border-[#333]" /></div>
+                    )}
+                    <p className="text-xs text-[#666] mt-2">Timer startet wenn du auf Speichern klickst</p>
+                </div>
+            )}
+            
+            {e.status === 'finished' && (
+                <div className="p-3 bg-[#0A0A0A] rounded border border-[#FF1E1E]/30 text-sm">
+                    <p className="text-[#FF1E1E]">⚠️ Wenn "Abgeschlossen" gespeichert wird:</p>
+                    <p className="text-[#A0A0A0] mt-1">E-Mails werden automatisch an alle Teilnehmer gesendet (falls aktiviert)</p>
+                </div>
+            )}
+            
+            <Button onClick={() => onSave(e)} className="w-full bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
+        </div>
+    );
+};
+
+// Email Editor Component
+const EmailEditor = ({ smtp, template, adminEmail, onSaveSmtp, onTestSmtp, onSaveTemplate, onPreview, preview, onSendAll, participantCount }) => {
+    const [s, setS] = useState(smtp || { host: '', port: 587, username: '', password: '', from_email: '', from_name: '', enabled: false });
+    const [t, setT] = useState(template || { subject: '', body_html: '', custom_footer: '', send_on_finish: true });
+    
+    return (
+        <Tabs defaultValue="smtp" className="mt-4">
+            <TabsList className="grid grid-cols-3 bg-[#0A0A0A]">
+                <TabsTrigger value="smtp">SMTP</TabsTrigger>
+                <TabsTrigger value="template">Template</TabsTrigger>
+                <TabsTrigger value="send">Senden</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="smtp" className="space-y-4 mt-4">
+                <div className="flex items-center justify-between p-3 bg-[#0A0A0A] rounded"><span>SMTP aktivieren</span><Switch checked={s.enabled} onCheckedChange={(v) => setS({...s, enabled: v})} /></div>
+                {s.enabled && <>
+                    <div className="grid grid-cols-[2fr_1fr] gap-2">
+                        <div><Label className="text-[#A0A0A0] text-xs">Host</Label><Input value={s.host} onChange={(e) => setS({...s, host: e.target.value})} placeholder="smtp.gmail.com" className="bg-[#0A0A0A] border-[#333]" /></div>
+                        <div><Label className="text-[#A0A0A0] text-xs">Port</Label><Input type="number" value={s.port} onChange={(e) => setS({...s, port: parseInt(e.target.value)})} className="bg-[#0A0A0A] border-[#333]" /></div>
+                    </div>
+                    <div><Label className="text-[#A0A0A0] text-xs">Benutzername</Label><Input value={s.username} onChange={(e) => setS({...s, username: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
+                    <div><Label className="text-[#A0A0A0] text-xs">Passwort</Label><Input type="password" value={s.password} onChange={(e) => setS({...s, password: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
+                    <div><Label className="text-[#A0A0A0] text-xs">Absender E-Mail</Label><Input value={s.from_email} onChange={(e) => setS({...s, from_email: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
+                    <div><Label className="text-[#A0A0A0] text-xs">Absender Name</Label><Input value={s.from_name} onChange={(e) => setS({...s, from_name: e.target.value})} placeholder="F1 Challenge" className="bg-[#0A0A0A] border-[#333]" /></div>
+                    <div className="flex gap-2">
+                        <Button onClick={() => onSaveSmtp(s)} className="flex-1 bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
+                        <Button onClick={onTestSmtp} variant="outline" className="border-[#333]"><Send size={14} className="mr-1" /> Test</Button>
+                    </div>
+                </>}
+            </TabsContent>
+            
+            <TabsContent value="template" className="space-y-4 mt-4">
+                <div className="p-3 bg-[#0A0A0A] rounded text-xs text-[#A0A0A0]">
+                    <strong>Variablen:</strong> {'{event_title}'}, {'{track_name}'}, {'{results_table}'}, {'{first_place}'}, {'{first_time}'}, {'{second_place}'}, {'{third_place}'}, {'{date}'}, {'{time}'}, {'{participant_name}'}, {'{custom_footer}'}, {'{title_color}'}
+                </div>
+                <div><Label className="text-[#A0A0A0] text-xs">Betreff</Label>
+                    <Input value={t.subject} onChange={(e) => setT({...t, subject: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
+                <div><Label className="text-[#A0A0A0] text-xs">HTML Body</Label>
+                    <Textarea value={t.body_html} onChange={(e) => setT({...t, body_html: e.target.value})} rows={10} className="bg-[#0A0A0A] border-[#333] font-mono text-xs" /></div>
+                <div><Label className="text-[#A0A0A0] text-xs">Footer Text</Label>
+                    <Input value={t.custom_footer} onChange={(e) => setT({...t, custom_footer: e.target.value})} className="bg-[#0A0A0A] border-[#333]" /></div>
+                <div className="flex items-center justify-between p-3 bg-[#0A0A0A] rounded">
+                    <span className="text-sm">Automatisch senden bei "Abgeschlossen"</span>
+                    <Switch checked={t.send_on_finish} onCheckedChange={(v) => setT({...t, send_on_finish: v})} />
+                </div>
+                <div className="flex gap-2">
+                    <Button onClick={() => onSaveTemplate(t)} className="flex-1 bg-[#FF1E1E]"><Check size={14} className="mr-1" /> Speichern</Button>
+                    <Button onClick={onPreview} variant="outline" className="border-[#333]"><Eye size={14} className="mr-1" /> Vorschau</Button>
+                </div>
+                {preview && (
+                    <div className="mt-4 p-4 bg-white text-black rounded max-h-80 overflow-auto">
+                        <div className="font-bold mb-2 pb-2 border-b">{preview.subject}</div>
+                        <div dangerouslySetInnerHTML={{ __html: preview.body_html }} />
+                    </div>
+                )}
+            </TabsContent>
+            
+            <TabsContent value="send" className="space-y-4 mt-4">
+                <div className="p-4 bg-[#0A0A0A] rounded text-center">
+                    <Users size={48} className="mx-auto mb-2 text-[#A0A0A0]" />
+                    <p className="text-2xl font-bold">{participantCount}</p>
+                    <p className="text-[#A0A0A0]">Teilnehmer</p>
+                </div>
+                <Button onClick={onSendAll} className="w-full bg-[#FF1E1E]" disabled={participantCount === 0}>
+                    <Send size={14} className="mr-2" /> Ergebnisse an alle senden
+                </Button>
+                <p className="text-xs text-[#A0A0A0] text-center">
+                    Tipp: E-Mails werden automatisch gesendet, wenn der Status auf "Abgeschlossen" gesetzt wird (falls aktiviert).
+                </p>
+            </TabsContent>
+        </Tabs>
+    );
+};
+
+// ==================== APP ====================
 function App() {
     return (
         <BrowserRouter>
