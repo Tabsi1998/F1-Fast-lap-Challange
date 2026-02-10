@@ -586,17 +586,27 @@ const AdminDashboard = () => {
                 <div className="bg-[#1A1A1A] rounded-xl border border-[#333] p-4 mb-4">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="font-bold flex items-center gap-2"><Plus size={18} className="text-[#FF1E1E]" /> Rundenzeit</h2>
-                        <div className="flex items-center gap-2 text-sm text-[#A0A0A0]">
-                            <User size={14} /><Switch checked={showTeam} onCheckedChange={setShowTeam} /><Users size={14} />
+                        <div className="flex items-center gap-3 text-sm text-[#A0A0A0]">
+                            <div className="flex items-center gap-1" title="Team anzeigen">
+                                <User size={14} /><Switch checked={showTeam} onCheckedChange={setShowTeam} /><Users size={14} />
+                            </div>
+                            <div className="flex items-center gap-1" title="E-Mail für Ergebnis">
+                                <Mail size={14} className={showEmail ? "text-[#FF1E1E]" : ""} /><Switch checked={showEmail} onCheckedChange={setShowEmail} />
+                            </div>
                         </div>
                     </div>
-                    <form onSubmit={handleAddEntry} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Fahrername" className="bg-[#0A0A0A] border-[#333]" />
-                        {showTeam && <Input value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Team (optional)" className="bg-[#0A0A0A] border-[#333]" />}
-                        <Input value={lapTime} onChange={(e) => setLapTime(e.target.value)} placeholder="1:23.456" className="bg-[#0A0A0A] border-[#333] font-mono" />
-                        <Button type="submit" className="bg-[#FF1E1E] hover:bg-[#D61A1A]" disabled={isSubmitting}>
-                            {isSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <><Plus size={16} className="mr-1" /> Hinzufügen</>}
-                        </Button>
+                    <form onSubmit={handleAddEntry} className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Fahrername *" className="bg-[#0A0A0A] border-[#333]" />
+                            {showTeam && <Input value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Team (optional)" className="bg-[#0A0A0A] border-[#333]" />}
+                            <Input value={lapTime} onChange={(e) => setLapTime(e.target.value)} placeholder="1:23.456 *" className="bg-[#0A0A0A] border-[#333] font-mono" />
+                            <Button type="submit" className="bg-[#FF1E1E] hover:bg-[#D61A1A]" disabled={isSubmitting}>
+                                {isSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <><Plus size={16} className="mr-1" /> Hinzufügen</>}
+                            </Button>
+                        </div>
+                        {showEmail && (
+                            <Input type="email" value={driverEmail} onChange={(e) => setDriverEmail(e.target.value)} placeholder="E-Mail für Ergebnis-Benachrichtigung (optional)" className="bg-[#0A0A0A] border-[#333]" />
+                        )}
                     </form>
                 </div>
                 
