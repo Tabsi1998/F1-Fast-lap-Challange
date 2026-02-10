@@ -40,27 +40,31 @@ const useAuth = () => {
     const [username, setUsername] = useState(localStorage.getItem('f1_username'));
     const [mustChangePassword, setMustChangePassword] = useState(localStorage.getItem('f1_must_change_pw') === 'true');
     
-    const login = (newToken, newUsername, needsPwChange = false) => { 
+    const login = useCallback((newToken, newUsername, needsPwChange = false) => { 
         localStorage.setItem('f1_token', newToken); 
         localStorage.setItem('f1_username', newUsername); 
         localStorage.setItem('f1_must_change_pw', needsPwChange ? 'true' : 'false');
         setToken(newToken); 
         setUsername(newUsername);
         setMustChangePassword(needsPwChange);
-    };
-    const logout = () => { 
+    }, []);
+    
+    const logout = useCallback(() => { 
         localStorage.removeItem('f1_token'); 
         localStorage.removeItem('f1_username'); 
         localStorage.removeItem('f1_must_change_pw');
         setToken(null); 
         setUsername(null);
         setMustChangePassword(false);
-    };
-    const clearPasswordFlag = () => {
+    }, []);
+    
+    const clearPasswordFlag = useCallback(() => {
         localStorage.setItem('f1_must_change_pw', 'false');
         setMustChangePassword(false);
-    };
-    const getAuthHeader = () => token ? { Authorization: `Bearer ${token}` } : {};
+    }, []);
+    
+    const getAuthHeader = useCallback(() => token ? { Authorization: `Bearer ${token}` } : {}, [token]);
+    
     return { token, username, mustChangePassword, login, logout, clearPasswordFlag, getAuthHeader, isAuthenticated: !!token };
 };
 
