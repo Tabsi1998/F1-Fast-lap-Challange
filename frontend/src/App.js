@@ -700,23 +700,29 @@ const AdminDashboard = () => {
                                     placeholder="Bild-URL oder hochladen →" 
                                     className="bg-[#0A0A0A] border-[#333] flex-1" 
                                 />
-                                <label className="cursor-pointer">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="hidden"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                const url = await handleUploadImage(file);
-                                                if (url) setNewTrackImage(url);
-                                            }
-                                        }}
-                                    />
-                                    <Button type="button" variant="outline" className="border-[#333]" disabled={uploadingImage}>
-                                        {uploadingImage ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
-                                    </Button>
-                                </label>
+                                <input 
+                                    id="track-image-upload"
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const url = await handleUploadImage(file);
+                                            if (url) setNewTrackImage(url);
+                                        }
+                                        e.target.value = '';
+                                    }}
+                                />
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="border-[#333]" 
+                                    disabled={uploadingImage}
+                                    onClick={() => document.getElementById('track-image-upload')?.click()}
+                                >
+                                    {uploadingImage ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                                </Button>
                             </div>
                             {newTrackImage && (
                                 <div className="relative w-full h-24 rounded overflow-hidden border border-[#333]">
