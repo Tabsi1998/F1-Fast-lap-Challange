@@ -7,7 +7,7 @@ import {
     Trophy, Timer, Flag, Plus, Trash2, Download, FileText, Edit2, 
     X, Check, Users, User, RefreshCw, Settings, LogOut, LogIn,
     MapPin, Calendar, ChevronRight, Palette, Key, Mail, Bell, Send,
-    Clock, Play, Square, UserPlus, Eye
+    Clock, Play, Square, UserPlus, Eye, Upload, Image
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
