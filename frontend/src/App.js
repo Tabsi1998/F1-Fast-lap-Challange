@@ -722,11 +722,12 @@ const DesignEditor = ({ design, onSave, onClose }) => {
     
     return (
         <Tabs defaultValue="title" className="mt-4">
-            <TabsList className="grid grid-cols-4 bg-[#0A0A0A]">
+            <TabsList className="grid grid-cols-5 bg-[#0A0A0A]">
                 <TabsTrigger value="title">Titel</TabsTrigger>
                 <TabsTrigger value="colors">Farben</TabsTrigger>
                 <TabsTrigger value="fonts">Schriften</TabsTrigger>
                 <TabsTrigger value="bg">Hintergrund</TabsTrigger>
+                <TabsTrigger value="site">Website</TabsTrigger>
             </TabsList>
             
             <TabsContent value="title" className="space-y-4 mt-4">
@@ -784,6 +785,26 @@ const DesignEditor = ({ design, onSave, onClose }) => {
                     <Input value={d.bg_image_url} onChange={(e) => setD({...d, bg_image_url: e.target.value})} placeholder="https://..." className="bg-[#0A0A0A] border-[#333]" /></div>
                 <div><Label className="text-[#A0A0A0] text-xs">Overlay Transparenz: {d.bg_overlay_opacity}</Label>
                     <input type="range" min="0" max="1" step="0.05" value={d.bg_overlay_opacity} onChange={(e) => setD({...d, bg_overlay_opacity: parseFloat(e.target.value)})} className="w-full" /></div>
+            </TabsContent>
+            
+            <TabsContent value="site" className="space-y-4 mt-4">
+                <div className="p-3 bg-[#0A0A0A] rounded border border-[#333]">
+                    <p className="text-sm text-[#A0A0A0] mb-2">🌐 Browser-Tab Einstellungen</p>
+                </div>
+                <div>
+                    <Label className="text-[#A0A0A0] text-xs">Tab-Titel (Browser)</Label>
+                    <Input value={d.site_title || ''} onChange={(e) => setD({...d, site_title: e.target.value})} placeholder="F1 Fast Lap Challenge" className="bg-[#0A0A0A] border-[#333]" />
+                </div>
+                <div>
+                    <Label className="text-[#A0A0A0] text-xs">Favicon URL (Icon im Browser-Tab)</Label>
+                    <Input value={d.favicon_url || ''} onChange={(e) => setD({...d, favicon_url: e.target.value})} placeholder="https://example.com/favicon.ico" className="bg-[#0A0A0A] border-[#333]" />
+                    {d.favicon_url && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <img src={d.favicon_url} alt="Favicon preview" className="w-8 h-8 object-contain rounded border border-[#333]" onError={(e) => e.target.style.display = 'none'} />
+                            <span className="text-xs text-[#A0A0A0]">Vorschau</span>
+                        </div>
+                    )}
+                </div>
             </TabsContent>
             
             <div className="flex gap-2 mt-6">
