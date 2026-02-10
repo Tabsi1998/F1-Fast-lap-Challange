@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
@@ -6,6 +6,9 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
@@ -22,9 +25,16 @@ load_dotenv(ROOT_DIR / '.env')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'f1-fast-lap-challenge-secret-key-2024')
 JWT_ALGORITHM = "HS256"
 
-mongo_url = os.environ['MONGO_URL']
+# SMTP Settings
+SMTP_HOST = os.environ.get('SMTP_HOST', '')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+SMTP_FROM = os.environ.get('SMTP_FROM', '')
+
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[os.environ.get('DB_NAME', 'f1_fast_lap_challenge')]
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -36,11 +46,14 @@ class AdminUser(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     username: str
+    email: Optional[str] = None
     password_hash: str
+    notifications_enabled: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class AdminCreate(BaseModel):
+class AdminSetup(BaseModel):
     username: str
+    email: Optional[str] = None
     password: str
 
 class AdminLogin(BaseModel):
@@ -50,6 +63,28 @@ class AdminLogin(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+class AdminUpdate(BaseModel):
+    email: Optional[str] = None
+    notifications_enabled: Optional[bool] = None
+
+class SmtpSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = "smtp_settings"
+    host: str = ""
+    port: int = 587
+    username: str = ""
+    password: str = ""
+    from_email: str = ""
+    enabled: bool = False
+
+class SmtpSettingsUpdate(BaseModel):
+    host: Optional[str] = None
+    port: Optional[int] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    from_email: Optional[str] = None
+    enabled: Optional[bool] = None
 
 class Track(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -175,22 +210,69 @@ async def get_current_admin(credentials: HTTPAuthorizationCredentials = Depends(
         raise HTTPException(status_code=401, detail="Not authenticated")
     return verify_token(credentials.credentials)
 
-async def init_default_admin():
-    """Create default admin account if none exists"""
-    existing = await db.admins.find_one({}, {"_id": 0})
-    if not existing:
-        password_hash = bcrypt.hashpw("admin".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        admin = AdminUser(username="admin", password_hash=password_hash)
-        doc = admin.model_dump()
-        doc['created_at'] = doc['created_at'].isoformat()
-        await db.admins.insert_one(doc)
-        logging.info("Default admin account created (admin/admin)")
+async def send_email_notification(driver_name: str, lap_time: str, rank: int):
+    """Send email notification for new lap time"""
+    try:
+        # Get SMTP settings from database
+        smtp_settings = await db.smtp_settings.find_one({"id": "smtp_settings"}, {"_id": 0})
+        if not smtp_settings or not smtp_settings.get('enabled'):
+            return
+        
+        # Get admin with notifications enabled
+        admin = await db.admins.find_one({"notifications_enabled": True}, {"_id": 0})
+        if not admin or not admin.get('email'):
+            return
+        
+        # Get site title
+        site = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
+        title = f"{site.get('title_line1', 'F1')} {site.get('title_line2', 'FAST LAP')} {site.get('title_line3', 'CHALLENGE')}" if site else "F1 FAST LAP CHALLENGE"
+        
+        # Create email
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"🏎️ Neue Rundenzeit: {driver_name} - {lap_time}"
+        msg['From'] = smtp_settings['from_email']
+        msg['To'] = admin['email']
+        
+        html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #0A0A0A; color: #FFFFFF; padding: 20px;">
+            <div style="max-width: 500px; margin: 0 auto; background-color: #1A1A1A; border-radius: 12px; padding: 30px; border: 1px solid #333;">
+                <h1 style="color: #FF1E1E; margin: 0 0 20px 0; font-size: 24px;">🏁 {title}</h1>
+                <h2 style="color: #FFFFFF; margin: 0 0 20px 0;">Neue Rundenzeit eingetragen!</h2>
+                <div style="background-color: #0A0A0A; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                    <p style="margin: 10px 0; font-size: 18px;"><strong>Fahrer:</strong> {driver_name}</p>
+                    <p style="margin: 10px 0; font-size: 24px; color: #00F0FF; font-family: monospace;"><strong>Zeit:</strong> {lap_time}</p>
+                    <p style="margin: 10px 0; font-size: 18px;"><strong>Aktuelle Position:</strong> Platz {rank}</p>
+                </div>
+                <p style="color: #666; font-size: 12px; margin-top: 30px;">Diese E-Mail wurde automatisch gesendet.</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(html, 'html'))
+        
+        # Send email
+        with smtplib.SMTP(smtp_settings['host'], smtp_settings['port']) as server:
+            server.starttls()
+            server.login(smtp_settings['username'], smtp_settings['password'])
+            server.send_message(msg)
+        
+        logging.info(f"Email notification sent for {driver_name}")
+    except Exception as e:
+        logging.error(f"Failed to send email: {e}")
 
 # ============== PUBLIC ROUTES ==============
 
 @api_router.get("/")
 async def root():
     return {"message": "F1 Fast Lap Challenge API"}
+
+@api_router.get("/auth/has-admin")
+async def has_admin():
+    """Check if any admin account exists"""
+    existing = await db.admins.find_one({}, {"_id": 0})
+    return {"has_admin": existing is not None}
 
 @api_router.get("/settings")
 async def get_site_settings():
@@ -259,17 +341,54 @@ async def get_tracks():
 
 # ============== AUTH ROUTES ==============
 
+@api_router.post("/auth/setup")
+async def setup_admin(admin: AdminSetup):
+    """Create first admin account (only works if no admin exists)"""
+    existing = await db.admins.find_one({}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Admin existiert bereits. Bitte einloggen.")
+    
+    if len(admin.password) < 4:
+        raise HTTPException(status_code=400, detail="Passwort muss mindestens 4 Zeichen haben")
+    
+    password_hash = bcrypt.hashpw(admin.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    admin_user = AdminUser(
+        username=admin.username,
+        email=admin.email,
+        password_hash=password_hash,
+        notifications_enabled=bool(admin.email)
+    )
+    
+    doc = admin_user.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    
+    await db.admins.insert_one(doc)
+    
+    token = create_token(admin.username)
+    return {"token": token, "username": admin.username, "email": admin.email}
+
 @api_router.post("/auth/login")
 async def login(credentials: AdminLogin):
-    await init_default_admin()
+    """Login as admin"""
     admin = await db.admins.find_one({"username": credentials.username}, {"_id": 0})
-    if not admin or not bcrypt.checkpw(credentials.password.encode('utf-8'), admin['password_hash'].encode('utf-8')):
+    if not admin:
         raise HTTPException(status_code=401, detail="Ungültige Anmeldedaten")
-    return {"token": create_token(credentials.username), "username": admin['username']}
+    
+    if not bcrypt.checkpw(credentials.password.encode('utf-8'), admin['password_hash'].encode('utf-8')):
+        raise HTTPException(status_code=401, detail="Ungültige Anmeldedaten")
+    
+    return {"token": create_token(credentials.username), "username": admin['username'], "email": admin.get('email')}
 
 @api_router.get("/auth/check")
 async def check_auth(admin = Depends(get_current_admin)):
-    return {"authenticated": True, "username": admin['username']}
+    admin_doc = await db.admins.find_one({"username": admin['username']}, {"_id": 0})
+    return {
+        "authenticated": True, 
+        "username": admin['username'],
+        "email": admin_doc.get('email') if admin_doc else None,
+        "notifications_enabled": admin_doc.get('notifications_enabled', False) if admin_doc else False
+    }
 
 # ============== ADMIN ROUTES (Protected) ==============
 
@@ -278,7 +397,7 @@ async def change_password(data: PasswordChange, admin = Depends(get_current_admi
     """Change admin password"""
     admin_doc = await db.admins.find_one({"username": admin['username']}, {"_id": 0})
     if not admin_doc:
-        raise HTTPException(status_code=404, detail="Admin not found")
+        raise HTTPException(status_code=404, detail="Admin nicht gefunden")
     
     if not bcrypt.checkpw(data.current_password.encode('utf-8'), admin_doc['password_hash'].encode('utf-8')):
         raise HTTPException(status_code=400, detail="Aktuelles Passwort falsch")
@@ -287,13 +406,91 @@ async def change_password(data: PasswordChange, admin = Depends(get_current_admi
     await db.admins.update_one({"username": admin['username']}, {"$set": {"password_hash": new_hash}})
     return {"message": "Passwort geändert"}
 
+@api_router.put("/admin/profile")
+async def update_profile(data: AdminUpdate, admin = Depends(get_current_admin)):
+    """Update admin profile (email, notifications)"""
+    update_data = {}
+    if data.email is not None:
+        update_data['email'] = data.email
+    if data.notifications_enabled is not None:
+        update_data['notifications_enabled'] = data.notifications_enabled
+    
+    if update_data:
+        await db.admins.update_one({"username": admin['username']}, {"$set": update_data})
+    
+    return {"message": "Profil aktualisiert"}
+
+@api_router.get("/admin/smtp")
+async def get_smtp_settings(admin = Depends(get_current_admin)):
+    """Get SMTP settings"""
+    settings = await db.smtp_settings.find_one({"id": "smtp_settings"}, {"_id": 0})
+    if not settings:
+        return SmtpSettings().model_dump()
+    # Don't return password
+    settings['password'] = '********' if settings.get('password') else ''
+    return settings
+
+@api_router.put("/admin/smtp")
+async def update_smtp_settings(settings: SmtpSettingsUpdate, admin = Depends(get_current_admin)):
+    """Update SMTP settings"""
+    current = await db.smtp_settings.find_one({"id": "smtp_settings"}, {"_id": 0})
+    
+    update_data = {"id": "smtp_settings"}
+    if current:
+        update_data = {**current, **{k: v for k, v in settings.model_dump().items() if v is not None}}
+    else:
+        update_data = {**SmtpSettings().model_dump(), **{k: v for k, v in settings.model_dump().items() if v is not None}}
+    
+    # Don't overwrite password with masked value
+    if settings.password == '********' or settings.password == '':
+        if current and current.get('password'):
+            update_data['password'] = current['password']
+    
+    await db.smtp_settings.update_one({"id": "smtp_settings"}, {"$set": update_data}, upsert=True)
+    return {"message": "SMTP Einstellungen gespeichert"}
+
+@api_router.post("/admin/smtp/test")
+async def test_smtp(admin = Depends(get_current_admin)):
+    """Test SMTP connection"""
+    smtp_settings = await db.smtp_settings.find_one({"id": "smtp_settings"}, {"_id": 0})
+    if not smtp_settings:
+        raise HTTPException(status_code=400, detail="SMTP nicht konfiguriert")
+    
+    admin_doc = await db.admins.find_one({"username": admin['username']}, {"_id": 0})
+    if not admin_doc or not admin_doc.get('email'):
+        raise HTTPException(status_code=400, detail="Keine E-Mail-Adresse hinterlegt")
+    
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = "🏎️ F1 Fast Lap Challenge - Test E-Mail"
+        msg['From'] = smtp_settings['from_email']
+        msg['To'] = admin_doc['email']
+        
+        html = """
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color: #0A0A0A; color: #FFFFFF; padding: 20px;">
+            <div style="max-width: 500px; margin: 0 auto; background-color: #1A1A1A; border-radius: 12px; padding: 30px; border: 1px solid #333;">
+                <h1 style="color: #FF1E1E;">✅ Test erfolgreich!</h1>
+                <p>Die SMTP-Konfiguration funktioniert korrekt.</p>
+                <p>Du erhältst nun Benachrichtigungen bei neuen Rundenzeiten.</p>
+            </div>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(html, 'html'))
+        
+        with smtplib.SMTP(smtp_settings['host'], smtp_settings['port']) as server:
+            server.starttls()
+            server.login(smtp_settings['username'], smtp_settings['password'])
+            server.send_message(msg)
+        
+        return {"message": "Test-E-Mail gesendet!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SMTP Fehler: {str(e)}")
+
 @api_router.put("/admin/settings")
 async def update_site_settings(settings: SiteSettingsUpdate, admin = Depends(get_current_admin)):
     """Update site settings"""
-    current = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
-    if not current:
-        current = SiteSettings().model_dump()
-    
     update_data = {k: v for k, v in settings.model_dump().items() if v is not None}
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
     
@@ -301,7 +498,7 @@ async def update_site_settings(settings: SiteSettingsUpdate, admin = Depends(get
     return {"message": "Einstellungen aktualisiert"}
 
 @api_router.post("/admin/laps", response_model=LapEntryResponse)
-async def create_lap_entry(entry: LapEntryCreate, admin = Depends(get_current_admin)):
+async def create_lap_entry(entry: LapEntryCreate, background_tasks: BackgroundTasks, admin = Depends(get_current_admin)):
     try:
         lap_time_ms = parse_lap_time(entry.lap_time_display)
     except ValueError as e:
@@ -312,8 +509,19 @@ async def create_lap_entry(entry: LapEntryCreate, admin = Depends(get_current_ad
     doc['created_at'] = doc['created_at'].isoformat()
     await db.lap_entries.insert_one(doc)
     
+    # Calculate rank
+    entries = await db.lap_entries.find({}, {"_id": 0}).sort("lap_time_ms", 1).to_list(1000)
+    rank = 1
+    for idx, e in enumerate(entries):
+        if e['id'] == lap_entry.id:
+            rank = idx + 1
+            break
+    
+    # Send email notification in background
+    background_tasks.add_task(send_email_notification, entry.driver_name, entry.lap_time_display, rank)
+    
     return LapEntryResponse(id=lap_entry.id, driver_name=lap_entry.driver_name, team=lap_entry.team,
-        lap_time_ms=lap_entry.lap_time_ms, lap_time_display=lap_entry.lap_time_display, created_at=doc['created_at'], rank=0, gap="")
+        lap_time_ms=lap_entry.lap_time_ms, lap_time_display=lap_entry.lap_time_display, created_at=doc['created_at'], rank=rank, gap="")
 
 @api_router.put("/admin/laps/{lap_id}", response_model=LapEntryResponse)
 async def update_lap_entry(lap_id: str, update: LapEntryUpdate, admin = Depends(get_current_admin)):
@@ -430,15 +638,11 @@ async def export_pdf_data(admin = Depends(get_current_admin)):
 
 app.include_router(api_router)
 
-app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"],
     allow_methods=["*"], allow_headers=["*"])
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-@app.on_event("startup")
-async def startup():
-    await init_default_admin()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
