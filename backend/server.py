@@ -380,7 +380,7 @@ async def replace_template_variables(template: str, subject: bool = False) -> st
     return result
 
 async def send_results_email(participant_ids: Optional[List[str]] = None):
-    """Send results email to participants"""
+    """Send results email to participants and lap entry emails"""
     try:
         smtp_settings = await db.smtp_settings.find_one({"id": "smtp_settings"}, {"_id": 0})
         if not smtp_settings or not smtp_settings.get('enabled'):
@@ -391,13 +391,27 @@ async def send_results_email(participant_ids: Optional[List[str]] = None):
         if not email_tpl:
             email_tpl = EmailTemplate().model_dump()
         
-        # Get participants
+        # Collect all email recipients from both participants and lap_entries
+        recipients = []
+        
+        # Get participants (legacy system)
         query = {"id": {"$in": participant_ids}} if participant_ids else {}
         participants = await db.participants.find(query, {"_id": 0}).to_list(1000)
+        for p in participants:
+            if p.get('email'):
+                recipients.append({"name": p.get('name', 'Teilnehmer'), "email": p['email']})
         
-        if not participants:
-            logging.info("No participants to send email to")
+        # Get emails from lap_entries (new system)
+        lap_entries = await db.lap_entries.find({"email": {"$exists": True, "$ne": None, "$ne": ""}}, {"_id": 0}).to_list(1000)
+        for entry in lap_entries:
+            if entry.get('email') and entry['email'] not in [r['email'] for r in recipients]:
+                recipients.append({"name": entry.get('driver_name', 'Fahrer'), "email": entry['email']})
+        
+        if not recipients:
+            logging.info("No recipients with email addresses found")
             return
+        
+        logging.info(f"Sending results to {len(recipients)} recipients")
         
         subject = await replace_template_variables(email_tpl['subject'], subject=True)
         body = await replace_template_variables(email_tpl['body_html'])
@@ -409,21 +423,21 @@ async def send_results_email(participant_ids: Optional[List[str]] = None):
             server.starttls()
             server.login(smtp_settings['username'], smtp_settings['password'])
             
-            for participant in participants:
+            for recipient in recipients:
                 try:
                     msg = MIMEMultipart('alternative')
                     msg['Subject'] = subject
                     msg['From'] = f"{from_name} <{from_email}>"
-                    msg['To'] = participant['email']
+                    msg['To'] = recipient['email']
                     
                     # Personalize body
-                    personalized_body = body.replace("{participant_name}", participant['name'])
+                    personalized_body = body.replace("{participant_name}", recipient['name'])
                     msg.attach(MIMEText(personalized_body, 'html'))
                     
                     server.send_message(msg)
-                    logging.info(f"Email sent to {participant['email']}")
+                    logging.info(f"Email sent to {recipient['email']}")
                 except Exception as e:
-                    logging.error(f"Failed to send to {participant['email']}: {e}")
+                    logging.error(f"Failed to send to {recipient['email']}: {e}")
         
     except Exception as e:
         logging.error(f"Failed to send results emails: {e}")
