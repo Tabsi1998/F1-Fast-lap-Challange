@@ -975,30 +975,30 @@ const DesignEditor = ({ design, onSave, onClose, onUpload }) => {
             </TabsContent>
             
             <TabsContent value="bg" className="space-y-4 mt-4">
-                <div><Label className="text-[#A0A0A0] text-xs">Hintergrundbild URL</Label>
-                    <Input value={d.bg_image_url} onChange={(e) => setD({...d, bg_image_url: e.target.value})} placeholder="https://..." className="bg-[#0A0A0A] border-[#333]" /></div>
+                <ImageUploadField 
+                    label="Hintergrundbild" 
+                    value={d.bg_image_url} 
+                    field="bg_image_url"
+                    description="Empfohlen: 1920x1080 oder größer"
+                />
                 <div><Label className="text-[#A0A0A0] text-xs">Overlay Transparenz: {d.bg_overlay_opacity}</Label>
                     <input type="range" min="0" max="1" step="0.05" value={d.bg_overlay_opacity} onChange={(e) => setD({...d, bg_overlay_opacity: parseFloat(e.target.value)})} className="w-full" /></div>
             </TabsContent>
             
             <TabsContent value="site" className="space-y-4 mt-4">
                 <div className="p-3 bg-[#0A0A0A] rounded border border-[#333]">
-                    <p className="text-sm text-[#A0A0A0] mb-2">🌐 Browser-Tab Einstellungen</p>
+                    <p className="text-sm text-[#A0A0A0]">🌐 Browser-Tab Einstellungen</p>
                 </div>
                 <div>
                     <Label className="text-[#A0A0A0] text-xs">Tab-Titel (Browser)</Label>
                     <Input value={d.site_title || ''} onChange={(e) => setD({...d, site_title: e.target.value})} placeholder="F1 Fast Lap Challenge" className="bg-[#0A0A0A] border-[#333]" />
                 </div>
-                <div>
-                    <Label className="text-[#A0A0A0] text-xs">Favicon URL (Icon im Browser-Tab)</Label>
-                    <Input value={d.favicon_url || ''} onChange={(e) => setD({...d, favicon_url: e.target.value})} placeholder="https://example.com/favicon.ico" className="bg-[#0A0A0A] border-[#333]" />
-                    {d.favicon_url && (
-                        <div className="mt-2 flex items-center gap-2">
-                            <img src={d.favicon_url} alt="Favicon preview" className="w-8 h-8 object-contain rounded border border-[#333]" onError={(e) => e.target.style.display = 'none'} />
-                            <span className="text-xs text-[#A0A0A0]">Vorschau</span>
-                        </div>
-                    )}
-                </div>
+                <ImageUploadField 
+                    label="Favicon (Browser-Icon)" 
+                    value={d.favicon_url} 
+                    field="favicon_url"
+                    description="Empfohlen: 32x32 oder 64x64 PNG/ICO"
+                />
             </TabsContent>
             
             <div className="flex gap-2 mt-6">
