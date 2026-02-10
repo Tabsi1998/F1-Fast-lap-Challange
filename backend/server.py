@@ -540,7 +540,12 @@ async def login(credentials: AdminLogin):
     admin = await db.admins.find_one({"username": credentials.username}, {"_id": 0})
     if not admin or not bcrypt.checkpw(credentials.password.encode('utf-8'), admin['password_hash'].encode('utf-8')):
         raise HTTPException(status_code=401, detail="Ungültige Anmeldedaten")
-    return {"token": create_token(credentials.username), "username": admin['username'], "email": admin.get('email')}
+    return {
+        "token": create_token(credentials.username), 
+        "username": admin['username'], 
+        "email": admin.get('email'),
+        "must_change_password": admin.get('must_change_password', False)
+    }
 
 @api_router.get("/auth/check")
 async def check_auth(admin = Depends(get_current_admin)):
